@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CivicResolve AI</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">CivicResolve <span>AI</span></div>
+    <div id="userBox"></div>
+  </header>
+
+  <main class="container">
+    <section id="authView" class="auth-grid">
+      <div class="hero">
+        <p class="eyebrow">AI CIVIC SERVICE</p>
+        <h1>Turn citizen complaints into action.</h1>
+        <p>Report road, drainage, waste, water, streetlight and public-facility problems. AI classifies, prioritizes and routes each case.</p>
+        <div class="feature-row">
+          <span>🤖 AI Triage</span><span>📍 Location</span><span>📷 Proof</span><span>📊 Tracking</span>
+        </div>
+      </div>
+
+      <div class="card auth-card">
+        <div class="tabs">
+          <button id="loginTab" class="tab active">Login</button>
+          <button id="registerTab" class="tab">Register</button>
+        </div>
+
+        <form id="loginForm">
+          <h2>Welcome back</h2>
+          <label>Email<input id="loginEmail" type="email" required /></label>
+          <label>Password<input id="loginPassword" type="password" required /></label>
+          <button class="primary" type="submit">Login</button>
+          <p id="loginMsg" class="msg"></p>
+        </form>
+
+        <form id="registerForm" class="hidden">
+          <h2>Create citizen account</h2>
+          <label>Full name<input id="regName" required /></label>
+          <label>Email<input id="regEmail" type="email" required /></label>
+          <label>Phone<input id="regPhone" /></label>
+          <label>Password<input id="regPassword" type="password" minlength="6" required /></label>
+          <button class="primary" type="submit">Register</button>
+          <p id="registerMsg" class="msg"></p>
+        </form>
+      </div>
+    </section>
+
+    <section id="citizenView" class="hidden">
+      <div class="page-head">
+        <div>
+          <p class="eyebrow">CITIZEN PORTAL</p>
+          <h1>Report a civic problem</h1>
+          <p>Submit details and let the AI agent classify and route your complaint.</p>
+        </div>
+        <button id="logoutBtn" class="outline">Logout</button>
+      </div>
+
+      <div class="dashboard-grid">
+        <form id="complaintForm" class="card">
+          <h2>New Complaint</h2>
+          <label>Problem title<input id="title" placeholder="e.g. Large pothole near bus stop" required /></label>
+          <label>What is the problem?<textarea id="description" rows="5" placeholder="Explain what happened, how serious it is, and how long it has existed." required></textarea></label>
+          <label>Address<input id="address" placeholder="Street, area, city" required /></label>
+
+          <div class="two">
+            <label>Latitude<input id="latitude" type="number" step="any" /></label>
+            <label>Longitude<input id="longitude" type="number" step="any" /></label>
+          </div>
+
+          <button type="button" id="locationBtn" class="outline full">📍 Use my current location</button>
+
+          <label>Photo proof
+            <input id="proof" type="file" accept="image/png,image/jpeg,image/webp" />
+            <small>JPG/PNG/WEBP, max 5 MB</small>
+          </label>
+
+          <button class="primary full" type="submit">Submit Complaint</button>
+          <p id="complaintMsg" class="msg"></p>
+        </form>
+
+        <div class="card">
+          <h2>My Complaints</h2>
+          <div id="complaintsList" class="complaints"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="adminView" class="hidden">
+      <div class="page-head">
+        <div>
+          <p class="eyebrow">ADMIN / DEPARTMENT PORTAL</p>
+          <h1>Complaint Operations</h1>
+          <p>Review AI routing, priority and update resolution status.</p>
+        </div>
+        <button id="adminLogoutBtn" class="outline">Logout</button>
+      </div>
+
+      <div id="analytics" class="stats"></div>
+
+      <div class="card">
+        <h2>Complaint Queue</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Problem</th><th>Category</th><th>Department</th>
+                <th>Priority</th><th>Status</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="adminTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-box">
+      <button id="closeModal" class="close">×</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <!-- AI Chatbot -->
+<div id="chatbot">
+  <button id="chatbot-toggle">💬</button>
+
+  <div id="chatbot-window">
+    <div id="chatbot-header">
+      <span>🤖 Civic AI Assistant</span>
+      <button id="chatbot-close">×</button>
+    </div>
+
+    <div id="chatbot-messages">
+      <div class="bot-message">
+        Hello! 👋 I'm your Civic AI Assistant. How can I help you?
+      </div>
+    </div>
+
+    <div id="chatbot-input-area">
+      <input
+        type="text"
+        id="chatbot-input"
+        placeholder="Ask me something..."
+      />
+      <button id="chatbot-send">Send</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
