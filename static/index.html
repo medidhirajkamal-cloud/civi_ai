@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CIVIC-AI | Smart Construction & Infrastructure Monitoring Platform</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            civic: {
+              dark: '#0b0f19',
+              card: '#111827',
+              blue: '#2563eb',
+              accent: '#38bdf8',
+              emerald: '#059669',
+              amber: '#d97706',
+              rose: '#e11d48'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Leaflet GIS Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-[#0b0f19] text-slate-100 min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white">
+
+  <!-- ================= TOP DEMO QUICK-SWITCH BAR ================= -->
+  <div class="bg-slate-900/95 border-b border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-xs gap-2 z-40">
+    <div class="flex items-center space-x-2">
+      <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/40 font-mono font-bold flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> DEMO MODE
+      </span>
+      <span class="text-slate-400 hidden sm:inline">1-Click Role Switcher:</span>
+    </div>
+    
+    <div class="flex flex-wrap items-center gap-1.5">
+      <button onclick="quickSwitchRole('user')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-blue-600 hover:text-white border border-slate-700 text-slate-200 transition-all font-medium flex items-center gap-1.5">
+        <i class="fa-solid fa-user text-blue-400"></i> Citizen (Priya)
+      </button>
+      <button onclick="quickSwitchRole('admin')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-red-600 hover:text-white border border-slate-700 text-slate-200 transition-all font-medium flex items-center gap-1.5">
+        <i class="fa-solid fa-shield-halved text-red-400"></i> Municipal Admin (IAS)
+      </button>
+      <button onclick="quickSwitchRole('department')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-amber-600 hover:text-white border border-slate-700 text-slate-200 transition-all font-medium flex items-center gap-1.5">
+        <i class="fa-solid fa-building-columns text-amber-400"></i> Roads Dept Officer
+      </button>
+      <button onclick="quickSwitchRole('worker')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-purple-600 hover:text-white border border-slate-700 text-slate-200 transition-all font-medium flex items-center gap-1.5">
+        <i class="fa-solid fa-helmet-safety text-purple-400"></i> Worker (Ravi)
+      </button>
+      
+      <button onclick="runEndToEndDemoTour()" class="ml-2 px-3 py-1 rounded-md bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold shadow-md flex items-center gap-1.5 animate-pulse">
+        <i class="fa-solid fa-play text-[10px]"></i> Launch 1-Click Tour
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= GUIDED DEMO TOUR BANNER ================= -->
+  <div id="demo-tour-banner" class="hidden fixed top-12 left-1/2 -translate-x-1/2 z-50 max-w-2xl w-full px-4">
+    <div class="glass-panel border border-blue-500/50 rounded-xl p-4 shadow-2xl bg-slate-900/95 flex items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg flex-shrink-0">
+          <i class="fa-solid fa-route"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span id="demo-tour-step-pill" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-600 text-white">Step 1/7</span>
+            <h4 id="demo-tour-title" class="text-sm font-bold text-slate-100">Simulating Citizen Reporting</h4>
+          </div>
+          <p id="demo-tour-desc" class="text-xs text-slate-300 mt-0.5">Scanning pothole and creating complaint...</p>
+        </div>
+      </div>
+      <button onclick="document.getElementById('demo-tour-banner').classList.add('hidden')" class="text-slate-400 hover:text-white p-1">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= STICKY HEADER / NAVIGATION ================= -->
+  <header class="sticky top-0 z-30 glass-panel border-b border-slate-800/80 px-4 lg:px-8 py-3">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <!-- Logo & Brand -->
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="switchView(currentUser ? currentUser.role : 'landing')">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-sky-400 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-500/30">
+          <i class="fa-solid fa-city"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-extrabold text-lg tracking-tight text-slate-100">CIVIC<span class="text-sky-400">AI</span></span>
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">v2.0</span>
+          </div>
+          <p class="text-[11px] text-slate-400 font-medium tracking-wide">Smart Infrastructure Monitoring & Resolution</p>
+        </div>
+      </div>
+
+      <!-- Navigation & Actions -->
+      <div class="flex items-center space-x-3">
+        <!-- Guest View CTA -->
+        <div id="header-guest-section" class="flex items-center space-x-2">
+          <button onclick="switchView('landing')" class="text-xs font-semibold text-slate-300 hover:text-white px-3 py-2">Home</button>
+          <button onclick="openScannerModal()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 text-xs font-bold border border-slate-700 flex items-center space-x-1.5 transition-all">
+            <i class="fa-solid fa-camera"></i>
+            <span>Quick Scan</span>
+          </button>
+          <button onclick="showAuthModal('login')" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition-all">
+            Sign In
+          </button>
+          <button onclick="showAuthModal('register')" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition-all">
+            Register
+          </button>
+        </div>
+
+        <!-- Authenticated User Profile & Dropdowns -->
+        <div id="header-user-section" class="hidden flex items-center space-x-4">
+          <!-- Notification Bell -->
+          <div class="relative">
+            <button onclick="toggleNotificationDropdown()" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white relative border border-slate-700">
+              <i class="fa-solid fa-bell text-sm"></i>
+              <span id="notif-unread-count" class="hidden absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[9px] font-bold flex items-center justify-center text-white">0</span>
+            </button>
+
+            <!-- Notifications Dropdown -->
+            <div id="notifications-dropdown" class="hidden absolute right-0 mt-2 w-80 glass-panel rounded-xl border border-slate-700 shadow-2xl overflow-hidden z-50">
+              <div class="p-3 border-b border-slate-700 flex items-center justify-between bg-slate-900/90">
+                <span class="text-xs font-bold text-slate-200">System Notifications</span>
+                <button onclick="markAllNotificationsRead()" class="text-[10px] text-blue-400 hover:underline">Mark all read</button>
+              </div>
+              <div id="notifications-dropdown-list" class="max-h-72 overflow-y-auto divide-y divide-slate-800">
+                <!-- Notifications loaded dynamically -->
+              </div>
+            </div>
+          </div>
+
+          <!-- User Pill -->
+          <div class="flex items-center space-x-3 pl-2 border-l border-slate-700">
+            <div class="text-right hidden sm:block">
+              <div id="header-user-name" class="text-xs font-bold text-slate-100">User Name</div>
+              <div id="header-user-role" class="text-[10px] text-slate-400 font-medium uppercase">Role</div>
+            </div>
+            <span id="header-role-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase">Role</span>
+            <button onclick="logout()" title="Sign Out" class="p-2 rounded-lg bg-slate-800 hover:bg-rose-600/20 text-slate-400 hover:text-rose-400 transition-all border border-slate-700">
+              <i class="fa-solid fa-arrow-right-from-bracket text-sm"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= MAIN CONTENT WRAPPER ================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8">
+
+    <!-- ================= SCREEN 1: LANDING PAGE ================= -->
+    <div id="screen-landing" class="space-y-12">
+      <!-- Hero Section -->
+      <section class="relative rounded-3xl overflow-hidden glass-panel border border-slate-800 p-8 lg:p-14 text-center">
+        <div class="absolute -top-32 -left-32 w-80 h-80 bg-blue-600/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-32 -right-32 w-80 h-80 bg-sky-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-semibold mb-6">
+          <i class="fa-solid fa-microchip"></i>
+          <span>Next-Gen Smart City AI Infrastructure Intelligence</span>
+        </div>
+
+        <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-100 max-w-4xl mx-auto leading-tight">
+          See a Problem. <span class="bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-400 bg-clip-text text-transparent">Scan it with AI.</span> Report & Track to Fix.
+        </h1>
+
+        <p class="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto mt-6 leading-relaxed">
+          Point your device camera at potholes, broken streetlights, water leaks, or open manholes. Our AI identifies the defect, tags precise GPS, dispatches municipal departments, and verifies completed repairs.
+        </p>
+
+        <!-- Main Actions -->
+        <div class="flex flex-wrap items-center justify-center gap-4 mt-8">
+          <button onclick="openScannerModal()" class="px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-500 hover:to-sky-400 text-white font-extrabold text-sm shadow-xl shadow-blue-500/25 flex items-center space-x-2.5 transition-all transform hover:scale-105">
+            <i class="fa-solid fa-camera text-base"></i>
+            <span>SCAN & REPORT ISSUE</span>
+          </button>
+          
+          <button onclick="showAuthModal('login')" class="px-6 py-3.5 rounded-xl glass-card hover:bg-slate-800 text-slate-200 font-bold text-sm border border-slate-700 flex items-center space-x-2 transition-all">
+            <i class="fa-solid fa-right-to-bracket"></i>
+            <span>Sign In to Dashboard</span>
+          </button>
+
+          <button onclick="showAuthModal('register')" class="px-6 py-3.5 rounded-xl bg-slate-800/90 hover:bg-blue-600 text-slate-200 hover:text-white font-bold text-sm border border-slate-700 flex items-center space-x-2 transition-all">
+            <i class="fa-solid fa-user-plus"></i>
+            <span>Register Role</span>
+          </button>
+
+          <button onclick="runEndToEndDemoTour()" class="px-5 py-3.5 rounded-xl bg-slate-800/90 hover:bg-indigo-600 text-indigo-300 hover:text-white font-bold text-sm border border-indigo-500/40 flex items-center space-x-2 transition-all">
+            <i class="fa-solid fa-play"></i>
+            <span>Full Demo Walkthrough</span>
+          </button>
+        </div>
+
+        <!-- Live Platform Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12 pt-10 border-t border-slate-800">
+          <div class="p-3">
+            <div class="text-2xl lg:text-3xl font-black text-blue-400 font-mono">1,248</div>
+            <div class="text-xs text-slate-400 mt-1 font-medium">Issues Detected & Reported</div>
+          </div>
+          <div class="p-3">
+            <div class="text-2xl lg:text-3xl font-black text-emerald-400 font-mono">94.8%</div>
+            <div class="text-xs text-slate-400 mt-1 font-medium">AI Verification Accuracy</div>
+          </div>
+          <div class="p-3">
+            <div class="text-2xl lg:text-3xl font-black text-amber-400 font-mono">6 Depts</div>
+            <div class="text-xs text-slate-400 mt-1 font-medium">Municipal Services Connected</div>
+          </div>
+          <div class="p-3">
+            <div class="text-2xl lg:text-3xl font-black text-purple-400 font-mono">&lt; 18.5 hrs</div>
+            <div class="text-xs text-slate-400 mt-1 font-medium">Average SLA Resolution Time</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7-Step Lifecycle Workflow Diagram -->
+      <section class="space-y-6">
+        <div class="text-center">
+          <h2 class="text-xl sm:text-2xl font-black text-slate-100">End-to-End Civic Workflow</h2>
+          <p class="text-xs text-slate-400 mt-1">Automated accountability from citizen report to verified closure</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div class="glass-card p-4 rounded-xl text-center border-t-4 border-blue-500">
+            <div class="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs mx-auto mb-2">1</div>
+            <h4 class="text-xs font-bold text-slate-100">Citizen Scan</h4>
+            <p class="text-[11px] text-slate-400 mt-1">Live camera scan & defect capture</p>
+          </div>
+          <div class="glass-card p-4 rounded-xl text-center border-t-4 border-sky-400">
+            <div class="w-8 h-8 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-xs mx-auto mb-2">2</div>
+            <h4 class="text-xs font-bold text-slate-100">AI Detection</h4>
+            <p class="text-[11px] text-slate-400 mt-1">Bounding box & severity rating</p>
+          </div>
+          <div class="glass-card p-4 rounded-xl text-center border-t-4 border-indigo-400">
+            <div class="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-xs mx-auto mb-2">3</div>
+            <h4 class="text-xs font-bold text-slate-100">GPS & Geocode</h4>
+            <p class="text-[11px] text-slate-400 mt-1">Auto coordinates & duplicate check</p>
+          </div>
+          <div class="glass-card p-4 rounded-xl text-center border-t-4 border-amber-500">
+            <div class="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs mx-auto mb-2">4</div>
+            <h4 class="text-xs font-bold text-slate-100">Admin Dispatch</h4>
+            <p class="text-[11px] text-slate-400 mt-1">Assigns Department & SLA</p>
+          </div>
+          <div class="glass-card p-4 rounded-xl text-center border-t-4 border-orange-500">
+            <div class="w-8 h-8 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold text-xs mx-auto mb-2">5</div>
+            <h4 class="text-xs font-bold text-slate-100">Worker Repair</h4>
+            <p class="text-[11px] text-slate-400 mt-1">Field repair & After-photo proof</p>
+          </div>
+          <div class="glass-card p-4 rounded-xl text-center border-t-4 border-teal-400">
+            <div class="w-8 h-8 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center font-bold text-xs mx-auto mb-2">6</div>
+            <h4 class="text-xs font-bold text-slate-100">AI Verification</h4>
+            <p class="text-[11px] text-slate-400 mt-1">Before vs After comparison</p>
+          </div>
+          <div class="glass-card p-4 rounded-xl text-center border-t-4 border-emerald-500">
+            <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs mx-auto mb-2">7</div>
+            <h4 class="text-xs font-bold text-slate-100">Final Closure</h4>
+            <p class="text-[11px] text-slate-400 mt-1">Admin sign-off & citizen alert</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= SCREEN 2: AUTH SCREEN (LOGIN & REGISTER) ================= -->
+    <div id="screen-auth" class="hidden max-w-lg mx-auto py-8">
+      <div class="glass-panel rounded-2xl border border-slate-800 p-6 sm:p-8 shadow-2xl">
+        <!-- Auth Tabs -->
+        <div class="flex items-center p-1 bg-slate-900 rounded-xl mb-6">
+          <button id="auth-tab-login" onclick="showAuthModal('login')" class="flex-1 py-2 rounded-lg text-xs font-bold text-white bg-blue-600 transition-all">
+            Sign In
+          </button>
+          <button id="auth-tab-register" onclick="showAuthModal('register')" class="flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition-all">
+            Register Role
+          </button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="form-login" class="space-y-4">
+          <!-- 1-Click Quick Fill Buttons for Testing -->
+          <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800 space-y-1.5">
+            <div class="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-bolt text-amber-400"></i> Quick Fill Demo Accounts:
+            </div>
+            <div class="grid grid-cols-2 gap-1.5 text-[10px]">
+              <button type="button" onclick="quickFillLogin('citizen@civic.gov.in', 'password123', 'user')" class="p-1.5 rounded bg-slate-800 hover:bg-blue-600 text-slate-200 text-left truncate">
+                👤 Priya (Citizen)
+              </button>
+              <button type="button" onclick="quickFillLogin('admin@civic.gov.in', 'password123', 'admin')" class="p-1.5 rounded bg-slate-800 hover:bg-red-600 text-slate-200 text-left truncate">
+                🛡️ Ramesh (Admin)
+              </button>
+              <button type="button" onclick="quickFillLogin('roads@civic.gov.in', 'password123', 'department')" class="p-1.5 rounded bg-slate-800 hover:bg-amber-600 text-slate-200 text-left truncate">
+                🛣️ Venkat (Roads Dept)
+              </button>
+              <button type="button" onclick="quickFillLogin('worker.ravi@civic.gov.in', 'password123', 'worker')" class="p-1.5 rounded bg-slate-800 hover:bg-purple-600 text-slate-200 text-left truncate">
+                👷 Ravi (Worker)
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Email / User ID / Employee ID / Worker ID</label>
+            <input type="text" id="login-email" required class="w-full px-3.5 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="e.g. citizen@civic.gov.in">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+            <input type="password" id="login-password" required class="w-full px-3.5 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="••••••••">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Role Mode</label>
+            <select id="login-role" class="w-full px-3.5 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <option value="auto" selected>✨ Auto-Detect Role from Account</option>
+              <option value="user">User / Citizen</option>
+              <option value="admin">Municipal Administrator</option>
+              <option value="department">Department Officer</option>
+              <option value="worker">Field Worker / Repair Crew</option>
+            </select>
+          </div>
+          <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs shadow-lg shadow-blue-600/30 transition-all">
+            Sign In to Dashboard
+          </button>
+
+          <div class="text-center pt-2">
+            <span class="text-xs text-slate-400">Don't have an account? </span>
+            <button type="button" onclick="showAuthModal('register')" class="text-xs font-bold text-blue-400 hover:underline">
+              Create an account / Register
+            </button>
+          </div>
+        </form>
+
+        <!-- Registration Form -->
+        <form id="form-register" class="hidden space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Select Role to Register</label>
+            <select id="reg-role" onchange="updateRegFields()" class="w-full px-3.5 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <option value="user" selected>Citizen / User</option>
+              <option value="admin">Municipal Admin</option>
+              <option value="department">Department Officer</option>
+              <option value="worker">Field Worker</option>
+            </select>
+          </div>
+
+          <!-- Citizen Fields -->
+          <div id="reg-fields-user" class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
+              <input type="text" id="reg-user-name" placeholder="e.g. Ramesh Reddy" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Email</label>
+              <input type="email" id="reg-user-email" placeholder="e.g. user@gmail.com" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Mobile Number</label>
+              <input type="text" id="reg-user-phone" placeholder="+91 98480 12345" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Residential Address</label>
+              <input type="text" id="reg-user-address" placeholder="Brodipet 4th Line, Guntur" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs">
+            </div>
+          </div>
+
+          <!-- Admin Fields -->
+          <div id="reg-fields-admin" class="hidden space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
+              <input type="text" id="reg-admin-name" placeholder="K. Ramesh Kumar" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Official Email</label>
+              <input type="email" id="reg-admin-email" placeholder="admin.officer@civic.gov.in" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Employee ID</label>
+              <input type="text" id="reg-admin-empid" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" placeholder="GMC-ADM-002">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Organization</label>
+              <input type="text" id="reg-admin-org" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" value="Guntur Municipal Corporation">
+            </div>
+          </div>
+
+          <!-- Department Fields -->
+          <div id="reg-fields-dept" class="hidden space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Department Name</label>
+              <input type="text" id="reg-dept-name" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" placeholder="Roads & Highways Department">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Officer Name</label>
+              <input type="text" id="reg-dept-officer" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" placeholder="Er. Venkat Rao">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Official Email</label>
+              <input type="email" id="reg-dept-email" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" placeholder="officer@roads.gov.in">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Department Code</label>
+              <input type="text" id="reg-dept-code" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" placeholder="ROADS-GMC-2">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Phone Number</label>
+              <input type="text" id="reg-dept-phone" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" placeholder="+91 863 2224010">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Service Area</label>
+              <input type="text" id="reg-dept-area" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" value="Guntur Urban">
+            </div>
+          </div>
+
+          <!-- Worker Fields -->
+          <div id="reg-fields-worker" class="hidden space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
+              <input type="text" id="reg-worker-name" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" placeholder="Ravi Teja">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Worker ID Code</label>
+              <input type="text" id="reg-worker-id" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" placeholder="WRK-105">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Phone Number</label>
+              <input type="text" id="reg-worker-phone" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" placeholder="+91 94401 11222">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Email</label>
+              <input type="email" id="reg-worker-email" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" placeholder="worker.ravi@civic.gov.in">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Department</label>
+              <select id="reg-worker-dept" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs">
+                <option value="1">Roads & Highways Department</option>
+                <option value="2">Sanitation & Solid Waste Department</option>
+                <option value="3">Drainage & Stormwater Department</option>
+                <option value="4">Electrical & Street Lighting Department</option>
+                <option value="5">Water Supply & Sewage Department</option>
+                <option value="6">Municipal Engineering Department</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Skill / Work Type</label>
+              <input type="text" id="reg-worker-skill" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" placeholder="Asphalt Patching & Paving">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Service Area</label>
+              <input type="text" id="reg-worker-area" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs" value="Guntur City">
+            </div>
+          </div>
+
+          <!-- Password fields -->
+          <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+              <input type="password" id="reg-password" required placeholder="••••••••" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Confirm Password</label>
+              <input type="password" id="reg-confirm-password" required placeholder="••••••••" class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 text-xs">
+            </div>
+          </div>
+
+          <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow-lg shadow-emerald-600/30 transition-all">
+            Create Account & Enter Dashboard
+          </button>
+
+          <div class="text-center pt-2">
+            <span class="text-xs text-slate-400">Already registered? </span>
+            <button type="button" onclick="showAuthModal('login')" class="text-xs font-bold text-blue-400 hover:underline">
+              Sign In here
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= SCREEN 3: CITIZEN DASHBOARD ================= -->
+    <div id="screen-user" class="hidden space-y-8">
+      <div class="glass-panel rounded-2xl p-6 sm:p-8 border border-blue-500/30 bg-gradient-to-r from-blue-950/50 via-slate-900/80 to-slate-900/80 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div>
+          <div class="flex items-center space-x-2 text-blue-400 text-xs font-bold mb-1">
+            <i class="fa-solid fa-bullhorn"></i>
+            <span>Citizen Action Portal</span>
+          </div>
+          <h2 class="text-2xl font-black text-slate-100">Smart Civic Infrastructure Reporting</h2>
+          <p class="text-xs text-slate-300 mt-1 max-w-xl">
+            Spot a road problem or civic defect? Open the AI scanner to identify issues, record location, and notify municipal repair crews instantly.
+          </p>
+        </div>
+
+        <button onclick="openScannerModal()" class="w-full md:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-500 hover:to-sky-400 text-white font-black text-sm shadow-xl shadow-blue-600/40 flex items-center justify-center space-x-3 transition-all transform hover:scale-105">
+          <i class="fa-solid fa-camera text-xl"></i>
+          <span>SCAN & REPORT ISSUE</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-3 gap-4">
+        <div class="glass-card p-4 rounded-xl border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">My Total Reports</div>
+          <div id="citizen-stat-total" class="text-2xl font-black text-blue-400 mt-1 font-mono">0</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">Active In Progress</div>
+          <div id="citizen-stat-active" class="text-2xl font-black text-amber-400 mt-1 font-mono">0</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">Verified & Resolved</div>
+          <div id="citizen-stat-resolved" class="text-2xl font-black text-emerald-400 mt-1 font-mono">0</div>
+        </div>
+      </div>
+
+      <div class="glass-panel rounded-2xl border border-slate-800 p-4 overflow-hidden">
+        <div class="flex items-center justify-between mb-3 px-2">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-map-location-dot text-blue-400"></i>
+            <h3 class="text-xs font-bold text-slate-200">My Reports Map</h3>
+          </div>
+          <span class="text-[10px] text-slate-400 font-mono">Live Geospatial Feed</span>
+        </div>
+        <div id="citizen-map-container" class="h-64 w-full rounded-xl overflow-hidden border border-slate-700"></div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-bold text-slate-100 flex items-center space-x-2">
+            <i class="fa-solid fa-list-check text-blue-400"></i>
+            <span>My Submitted Complaints</span>
+          </h3>
+          <span class="text-xs text-slate-400">Click any card to track live vertical timeline</span>
+        </div>
+
+        <div id="citizen-complaints-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+    </div>
+
+    <!-- ================= SCREEN 4: ADMIN DASHBOARD ================= -->
+    <div id="screen-admin" class="hidden space-y-8">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span class="text-xs font-bold text-red-400 uppercase tracking-wider">Municipal Administration Portal</span>
+          <h2 class="text-2xl font-black text-slate-100">City Infrastructure Command Center</h2>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="filterAdminComplaints()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold border border-slate-700 flex items-center space-x-1.5">
+            <i class="fa-solid fa-rotate"></i>
+            <span>Refresh Feed</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div class="glass-card p-3 rounded-xl border border-slate-800">
+          <div class="text-[10px] text-slate-400 font-medium truncate">Total Reports</div>
+          <div id="admin-stat-total" class="text-xl font-black text-blue-400 mt-1 font-mono">0</div>
+        </div>
+        <div class="glass-card p-3 rounded-xl border border-slate-800">
+          <div class="text-[10px] text-slate-400 font-medium truncate">New Inflow</div>
+          <div id="admin-stat-new" class="text-xl font-black text-rose-400 mt-1 font-mono">0</div>
+        </div>
+        <div class="glass-card p-3 rounded-xl border border-slate-800">
+          <div class="text-[10px] text-slate-400 font-medium truncate">Assigned</div>
+          <div id="admin-stat-assigned" class="text-xl font-black text-amber-400 mt-1 font-mono">0</div>
+        </div>
+        <div class="glass-card p-3 rounded-xl border border-slate-800">
+          <div class="text-[10px] text-slate-400 font-medium truncate">In Progress</div>
+          <div id="admin-stat-progress" class="text-xl font-black text-sky-400 mt-1 font-mono">0</div>
+        </div>
+        <div class="glass-card p-3 rounded-xl border border-slate-800">
+          <div class="text-[10px] text-slate-400 font-medium truncate">Dept Verified</div>
+          <div id="admin-stat-verification" class="text-xl font-black text-purple-400 mt-1 font-mono">0</div>
+        </div>
+        <div class="glass-card p-3 rounded-xl border border-slate-800">
+          <div class="text-[10px] text-slate-400 font-medium truncate">Resolved</div>
+          <div id="admin-stat-resolved" class="text-xl font-black text-emerald-400 mt-1 font-mono">0</div>
+        </div>
+        <div class="glass-card p-3 rounded-xl border border-slate-800">
+          <div class="text-[10px] text-slate-400 font-medium truncate">Overdue Breaches</div>
+          <div id="admin-stat-overdue" class="text-xl font-black text-red-500 mt-1 font-mono">0</div>
+        </div>
+        <div class="glass-card p-3 rounded-xl border border-slate-800">
+          <div class="text-[10px] text-slate-400 font-medium truncate">Avg SLA Time</div>
+          <div id="admin-stat-avghours" class="text-xl font-black text-teal-400 mt-1 font-mono">0h</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div class="glass-panel p-4 rounded-2xl border border-slate-800 lg:col-span-2">
+          <h4 class="text-xs font-bold text-slate-300 mb-2 flex items-center justify-between">
+            <span>Complaints by Department</span>
+            <i class="fa-solid fa-chart-simple text-blue-400"></i>
+          </h4>
+          <div class="h-56 relative"><canvas id="chart-by-dept"></canvas></div>
+        </div>
+
+        <div class="glass-panel p-4 rounded-2xl border border-slate-800">
+          <h4 class="text-xs font-bold text-slate-300 mb-2 flex items-center justify-between">
+            <span>Defect Categories</span>
+            <i class="fa-solid fa-chart-pie text-emerald-400"></i>
+          </h4>
+          <div class="h-56 relative"><canvas id="chart-by-category"></canvas></div>
+        </div>
+
+        <div class="glass-panel p-4 rounded-2xl border border-slate-800">
+          <h4 class="text-xs font-bold text-slate-300 mb-2 flex items-center justify-between">
+            <span>Severity Distribution</span>
+            <i class="fa-solid fa-radiation text-rose-400"></i>
+          </h4>
+          <div class="h-56 relative"><canvas id="chart-by-severity"></canvas></div>
+        </div>
+      </div>
+
+      <div class="glass-panel p-4 rounded-2xl border border-slate-800">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-map text-blue-400"></i>
+            <h4 class="text-xs font-bold text-slate-200">City-Wide Infrastructure GIS Map</h4>
+          </div>
+          <div class="flex items-center space-x-3 text-[10px]">
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> New</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Assigned</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> In Progress</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Resolved</span>
+          </div>
+        </div>
+        <div id="admin-map-container" class="h-80 w-full rounded-xl overflow-hidden border border-slate-700"></div>
+      </div>
+
+      <div class="glass-panel rounded-2xl border border-slate-800 overflow-hidden">
+        <div class="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-900/60">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-table-list text-slate-400"></i>
+            <h3 class="text-sm font-bold text-slate-200">Complaints Queue</h3>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <input type="text" id="admin-filter-search" oninput="filterAdminComplaints()" placeholder="Search ID, defect, address..." class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:outline-none">
+            <select id="admin-filter-status" onchange="filterAdminComplaints()" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:outline-none">
+              <option value="">All Statuses</option>
+              <option value="NEW">NEW</option>
+              <option value="ASSIGNED_DEPT">ASSIGNED_DEPT</option>
+              <option value="WORK_STARTED">WORK_STARTED</option>
+              <option value="WORK_COMPLETED">WORK_COMPLETED</option>
+              <option value="DEPT_VERIFIED">DEPT_VERIFIED</option>
+              <option value="RESOLVED">RESOLVED</option>
+            </select>
+            <select id="admin-filter-priority" onchange="filterAdminComplaints()" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:outline-none">
+              <option value="">All Priorities</option>
+              <option value="CRITICAL">CRITICAL</option>
+              <option value="HIGH">HIGH</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="LOW">LOW</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-900/90 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-800">
+                <th class="px-4 py-3">Complaint ID</th>
+                <th class="px-4 py-3">Issue & Location</th>
+                <th class="px-4 py-3">Assigned Department</th>
+                <th class="px-4 py-3">Priority</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3">Date</th>
+                <th class="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-complaints-tbody" class="divide-y divide-slate-800 text-xs"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SCREEN 5: DEPARTMENT OFFICER DASHBOARD ================= -->
+    <div id="screen-department" class="hidden space-y-8">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Department Operations Console</span>
+          <h2 id="dept-name-display" class="text-2xl font-black text-slate-100">Roads & Highways Department</h2>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
+        <div class="glass-card p-4 rounded-xl border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">Total Assigned</div>
+          <div id="dept-stat-total" class="text-2xl font-black text-amber-400 mt-1 font-mono">0</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">Pending Dispatch</div>
+          <div id="dept-stat-dispatch" class="text-2xl font-black text-rose-400 mt-1 font-mono">0</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">Active Repairs</div>
+          <div id="dept-stat-active" class="text-2xl font-black text-blue-400 mt-1 font-mono">0</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">Needs Verification</div>
+          <div id="dept-stat-verify" class="text-2xl font-black text-teal-400 mt-1 font-mono">0</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">Resolved & Closed</div>
+          <div id="dept-stat-resolved" class="text-2xl font-black text-emerald-400 mt-1 font-mono">0</div>
+        </div>
+      </div>
+
+      <div class="glass-panel rounded-2xl border border-slate-800 overflow-hidden">
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+          <h3 class="text-sm font-bold text-slate-200 flex items-center space-x-2">
+            <i class="fa-solid fa-list text-amber-400"></i>
+            <span>Department Work Orders</span>
+          </h3>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-900/90 text-slate-400 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-800">
+                <th class="px-4 py-3">Complaint ID</th>
+                <th class="px-4 py-3">Issue & Location</th>
+                <th class="px-4 py-3">Assigned Worker</th>
+                <th class="px-4 py-3">Priority</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="dept-complaints-tbody" class="divide-y divide-slate-800 text-xs"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SCREEN 6: WORKER DASHBOARD (MOBILE-FIRST) ================= -->
+    <div id="screen-worker" class="hidden space-y-6 max-w-4xl mx-auto">
+      <div class="glass-panel rounded-2xl p-5 border border-purple-500/30 flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-bold text-purple-400 uppercase tracking-wider">Field Repair Crew</span>
+          <h2 id="worker-name-display" class="text-xl font-black text-slate-100">Ravi Teja</h2>
+          <p id="worker-skill-display" class="text-xs text-slate-400 mt-0.5">Asphalt Paving & Road Repair Specialist</p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-xl font-bold">
+          <i class="fa-solid fa-helmet-safety"></i>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-slate-200 flex items-center space-x-2">
+          <i class="fa-solid fa-clipboard-list text-purple-400"></i>
+          <span>My Assigned Jobs</span>
+        </h3>
+        <span class="text-xs text-slate-400 font-mono">Mobile Task List</span>
+      </div>
+
+      <div id="worker-tasks-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </div>
+
+  </main>
+
+  <!-- ================= MODAL: AI CAMERA SCANNER ================= -->
+  <div id="scanner-modal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl border border-slate-700 max-w-2xl w-full overflow-hidden shadow-2xl">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-3 h-3 rounded-full bg-rose-500 animate-ping"></div>
+          <h3 class="text-sm font-black text-slate-100 tracking-wide">AI Computer Vision Scanner</h3>
+        </div>
+        <button onclick="closeScannerModal()" class="p-1 rounded-lg text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div id="scanner-preview-container" class="p-4 space-y-4">
+        <div class="relative w-full h-80 bg-black rounded-xl overflow-hidden scanner-overlay border border-slate-700 flex items-center justify-center">
+          <video id="scanner-video" class="w-full h-full object-cover" playsinline muted></video>
+          <canvas id="scanner-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+          <img id="scanner-sample-preview" class="hidden w-full h-full object-cover" alt="Defect Preview">
+
+          <div class="scanner-line"></div>
+          <div class="reticle-corner reticle-tl"></div>
+          <div class="reticle-corner reticle-tr"></div>
+          <div class="reticle-corner reticle-bl"></div>
+          <div class="reticle-corner reticle-br"></div>
+
+          <div class="absolute bottom-3 left-3 px-3 py-1 rounded-lg bg-slate-900/85 backdrop-blur border border-slate-700 text-[11px] font-mono text-sky-400">
+            <i class="fa-solid fa-crosshairs mr-1"></i> AI Active | Model: ModularCivicVision-v2.6
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-xs">
+          <span id="camera-status-text" class="text-slate-300 font-medium">Scanning live camera feed...</span>
+          <span id="gps-status-pill" class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono text-[11px]">
+            Acquiring GPS...
+          </span>
+        </div>
+
+        <div class="flex items-center justify-between gap-3 pt-2">
+          <button onclick="captureCurrentFrame()" class="flex-1 py-3 bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-500 hover:to-sky-400 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-blue-500/25 flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-camera"></i>
+            <span>Capture Frame Now</span>
+          </button>
+
+          <label class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 cursor-pointer flex items-center space-x-1.5 transition-all">
+            <i class="fa-solid fa-upload"></i>
+            <span>Upload Image</span>
+            <input type="file" accept="image/*" onchange="handleManualFileUpload(event)" class="hidden">
+          </label>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300">Or Select a Sample Defect (1-Click Test):</span>
+            <span class="text-[10px] text-slate-400">Works without physical street defect</span>
+          </div>
+          <div id="sample-defect-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+        </div>
+      </div>
+
+      <div id="scanner-loading-state" class="hidden p-8 text-center space-y-4">
+        <div class="w-14 h-14 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto"></div>
+        <h4 class="text-sm font-bold text-slate-200">Analyzing Image with AI Vision Model...</h4>
+        <p class="text-xs text-slate-400">Classifying defect morphology, computing bounding box, and verifying GPS location.</p>
+      </div>
+
+      <div id="scanner-review-form" class="hidden p-5 space-y-4">
+        <div class="flex items-center space-x-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+          <i class="fa-solid fa-brain text-xl text-blue-400"></i>
+          <div class="flex-1">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-200">AI Computer Vision Diagnosis</span>
+              <span id="review-ai-confidence" class="text-xs font-mono font-bold text-emerald-400">95%</span>
+            </div>
+            <p class="text-[11px] text-slate-300 mt-0.5">Recommended Department: <span id="review-ai-dept" class="font-semibold text-blue-300">Roads & Highways Department</span></p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <div class="relative h-44 rounded-xl overflow-hidden border border-slate-700 bg-slate-900">
+              <img id="review-image" src="" class="w-full h-full object-cover">
+            </div>
+            <div id="review-lat-lng" class="text-[11px] font-mono text-slate-400 mt-1.5">GPS: 16.3142, 80.4350</div>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-300 mb-1">Detected Issue Type</label>
+              <input type="text" id="review-issue-type" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-100 font-bold">
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-300 mb-1">Severity</label>
+                <select id="review-severity" class="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-100 font-bold">
+                  <option value="CRITICAL">CRITICAL</option>
+                  <option value="HIGH">HIGH</option>
+                  <option value="MEDIUM">MEDIUM</option>
+                  <option value="LOW">LOW</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-300 mb-1">Assigned Department</label>
+                <input type="text" id="review-category" class="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-300">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-300 mb-1">Address / Landmark</label>
+              <input type="text" id="review-address" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-300 mb-1">AI Generated Description / Notes</label>
+          <textarea id="review-description" rows="2" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 leading-relaxed"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
+          <button onclick="openScannerModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold">
+            Retake Photo
+          </button>
+          <button onclick="submitComplaintForm()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow-lg shadow-blue-600/30">
+            SUBMIT COMPLAINT →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: DUPLICATE COMPLAINT WARNING ================= -->
+  <div id="duplicate-modal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl border border-amber-500/50 max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center space-x-3 text-amber-400">
+        <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+        <div>
+          <h4 class="text-sm font-bold text-slate-100">Similar Complaint Already Exists</h4>
+          <p class="text-xs text-slate-400">A nearby issue was recently reported</p>
+        </div>
+      </div>
+
+      <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 flex items-center space-x-3">
+        <img id="dup-image" class="w-16 h-16 rounded-lg object-cover bg-slate-950 flex-shrink-0" src="">
+        <div class="text-xs space-y-1">
+          <div id="dup-complaint-id" class="font-mono font-bold text-blue-400">CIV-2026-000101</div>
+          <div id="dup-issue-type" class="font-bold text-slate-200">Pothole</div>
+          <div id="dup-distance" class="text-slate-400">24 meters away</div>
+          <div>Status: <span id="dup-status" class="font-bold text-amber-400">IN PROGRESS</span></div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2 pt-2">
+        <button onclick="closeDuplicateModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold">
+          Submit Anyway
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: COMPLAINT DETAIL & VERTICAL TIMELINE ================= -->
+  <div id="complaint-detail-modal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl border border-slate-700 max-w-3xl w-full p-6 space-y-6 shadow-2xl my-8">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center space-x-3">
+          <span id="detail-modal-id" class="font-mono text-sm font-bold text-blue-400 px-2.5 py-1 rounded bg-blue-500/10 border border-blue-500/30">
+            CIV-2026-000101
+          </span>
+          <h3 id="detail-modal-issue" class="text-lg font-black text-slate-100">Pothole Defect</h3>
+          <span id="detail-modal-status" class="px-2.5 py-0.5 rounded text-xs font-bold uppercase">RESOLVED</span>
+        </div>
+        <button onclick="closeDetailModal()" class="text-slate-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-4">
+          <div class="relative h-56 rounded-xl overflow-hidden border border-slate-700 bg-slate-900">
+            <img id="detail-modal-image" class="w-full h-full object-cover" src="">
+            <span class="absolute bottom-2 left-2 text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900/80 text-white">Original Citizen Photo</span>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 text-xs space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">Location:</span>
+              <span id="detail-modal-address" class="font-bold text-slate-200 text-right truncate max-w-xs">Lakshmipuram Main Road</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">Coordinates:</span>
+              <span id="detail-modal-coords" class="font-mono text-slate-300">16.3142, 80.4350</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">Priority Tier:</span>
+              <span id="detail-modal-priority" class="font-bold text-amber-400">HIGH</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">Severity:</span>
+              <span id="detail-modal-severity" class="font-bold text-slate-200">HIGH</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">Department:</span>
+              <span id="detail-modal-dept" class="font-semibold text-blue-300">Roads & Highways Department</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">Assigned Worker:</span>
+              <span id="detail-modal-worker" class="font-semibold text-purple-300">Ravi Teja (WRK-RDS-101)</span>
+            </div>
+            <div class="pt-2 border-t border-slate-800 text-slate-300 leading-relaxed">
+              <span class="text-slate-400">Description:</span> <span id="detail-modal-description"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div id="detail-resolution-section" class="hidden p-4 rounded-xl bg-slate-900/90 border border-teal-500/40 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-teal-400 flex items-center gap-1.5">
+                <i class="fa-solid fa-certificate"></i> AI Resolution Verification
+              </span>
+              <span id="detail-ai-conf" class="text-xs font-mono font-bold text-emerald-400">95% Match</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div class="relative h-28 rounded-lg overflow-hidden border border-slate-700 bg-slate-950">
+                <img id="detail-before-img" class="w-full h-full object-cover" src="">
+                <span class="absolute bottom-1 left-1 text-[9px] px-1.5 py-0.5 rounded bg-black/80 text-rose-300 font-bold uppercase">Before</span>
+              </div>
+              <div class="relative h-28 rounded-lg overflow-hidden border border-slate-700 bg-slate-950">
+                <img id="detail-after-img" class="w-full h-full object-cover" src="">
+                <span class="absolute bottom-1 left-1 text-[9px] px-1.5 py-0.5 rounded bg-black/80 text-emerald-300 font-bold uppercase">After Repair</span>
+              </div>
+            </div>
+
+            <div class="text-[11px] text-slate-300 space-y-1">
+              <div><span class="text-slate-400 font-semibold">Work Executed:</span> <span id="detail-work-desc"></span></div>
+              <div><span class="text-slate-400 font-semibold">Materials Used:</span> <span id="detail-materials"></span></div>
+              <div class="pt-1 text-[10px] text-teal-300 italic" id="detail-ai-notes"></div>
+            </div>
+          </div>
+
+          <div>
+            <h4 class="text-xs font-bold text-slate-300 mb-3 flex items-center space-x-2">
+              <i class="fa-solid fa-timeline text-blue-400"></i>
+              <span>Lifecycle Event Timeline</span>
+            </h4>
+            <div id="detail-modal-timeline-container" class="max-h-72 overflow-y-auto pr-1"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="detail-actions-container" class="flex flex-wrap items-center justify-end gap-2 pt-4 border-t border-slate-800"></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: ADMIN ASSIGN DEPARTMENT ================= -->
+  <div id="admin-assign-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl border border-slate-700 max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h4 class="text-sm font-bold text-slate-100">Assign Complaint to Department</h4>
+        <button onclick="closeAdminAssignModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <input type="hidden" id="admin-assign-complaint-id">
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Target Department</label>
+          <select id="admin-assign-dept-select" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-100"></select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Priority</label>
+            <select id="admin-assign-priority-select" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-100">
+              <option value="CRITICAL">CRITICAL</option>
+              <option value="HIGH" selected>HIGH</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="LOW">LOW</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">SLA Deadline (Hours)</label>
+            <input type="number" id="admin-assign-deadline-input" value="24" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-100">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Official Instructions</label>
+          <textarea id="admin-assign-instructions" rows="2" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-100" placeholder="Deploy crew, execute repair and upload before/after photos."></textarea>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
+        <button onclick="closeAdminAssignModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold">Cancel</button>
+        <button onclick="submitAdminAssignment()" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold">Assign to Dept →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: DEPT ASSIGN WORKER ================= -->
+  <div id="dept-assign-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl border border-slate-700 max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h4 class="text-sm font-bold text-slate-100">Dispatch Field Worker</h4>
+        <button onclick="closeDeptAssignModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <input type="hidden" id="dept-assign-complaint-id">
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Select Field Worker</label>
+          <select id="dept-assign-worker-select" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-100"></select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Work Instructions</label>
+          <textarea id="dept-assign-instructions" rows="2" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-100" placeholder="Inspect defect, apply appropriate repair materials and capture After photo."></textarea>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
+        <button onclick="closeDeptAssignModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold">Cancel</button>
+        <button onclick="submitDeptAssignment()" class="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold">Dispatch Worker →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: WORKER RESOLUTION SUBMISSION ================= -->
+  <div id="worker-resolve-modal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl border border-purple-500/50 max-w-lg w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <span class="text-[10px] text-purple-400 font-bold uppercase">Work Completion Proof</span>
+          <h4 class="text-sm font-black text-slate-100">Submit Repair Resolution</h4>
+        </div>
+        <button onclick="closeWorkerResolveModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <input type="hidden" id="resolve-complaint-id-input">
+      <input type="hidden" id="resolve-before-url-input">
+      <input type="hidden" id="resolve-after-url-input">
+      <input type="hidden" id="resolve-issue-type-input">
+
+      <div class="text-xs text-slate-300 font-mono">
+        Complaint ID: <span id="resolve-complaint-id" class="text-purple-400 font-bold"></span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="space-y-1">
+          <label class="block text-[11px] font-semibold text-slate-400">Before (Original)</label>
+          <div class="h-32 rounded-xl overflow-hidden border border-slate-700 bg-slate-900">
+            <img id="resolve-before-preview" class="w-full h-full object-cover" src="">
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <label class="block text-[11px] font-semibold text-slate-400">After (Repaired)</label>
+          <div class="h-32 rounded-xl overflow-hidden border border-emerald-500/50 bg-slate-900 relative">
+            <img id="resolve-after-preview" class="w-full h-full object-cover" src="/uploads/pothole_after.jpg">
+            <label class="absolute bottom-1 right-1 px-2 py-1 bg-black/80 hover:bg-black text-white text-[10px] rounded cursor-pointer border border-slate-700">
+              <i class="fa-solid fa-camera"></i> Change Photo
+              <input type="file" accept="image/*" onchange="handleWorkerAfterPhotoUpload(event)" class="hidden">
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Work Description & Actions Taken</label>
+          <textarea id="resolve-work-desc" rows="2" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-100" placeholder="Excavated loose road debris, applied tack coat, laid asphalt mix and compacted to level."></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Materials & Equipment Used</label>
+          <input type="text" id="resolve-materials" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-100" placeholder="Bitumen Emulsion 40kg, Dense Asphalt Mix 300kg, Roller">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+        <span class="text-[10px] text-emerald-400 font-mono"><i class="fa-solid fa-location-crosshairs mr-1"></i> GPS presence verified</span>
+        <button onclick="submitWorkerResolution()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-lg shadow-emerald-600/30">
+          Submit for Verification →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Javascript Logic files -->
+  <script src="/static/js/timeline.js"></script>
+  <script src="/static/js/map.js"></script>
+  <script src="/static/js/charts.js"></script>
+  <script src="/static/js/scanner.js"></script>
+  <script src="/static/js/demo.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

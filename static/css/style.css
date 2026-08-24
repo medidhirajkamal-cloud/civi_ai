@@ -1,0 +1,173 @@
+/* Modern Civic AI Design System */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  --civic-navy: #0f172a;
+  --civic-blue: #1e40af;
+  --civic-teal: #0d9488;
+  --civic-amber: #d97706;
+  --civic-red: #dc2626;
+  --civic-green: #16a34a;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #0b0f19;
+  color: #f1f5f9;
+  overflow-x: hidden;
+}
+
+.mono-font {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Glassmorphic Cards */
+.glass-panel {
+  background: rgba(17, 24, 39, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+}
+
+.glass-card {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.25s ease-in-out;
+}
+
+.glass-card:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.6);
+}
+
+/* AI Scanner Animation & Reticle */
+.scanner-overlay {
+  position: relative;
+  overflow: hidden;
+}
+
+.scanner-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #38bdf8, #60a5fa, #38bdf8, transparent);
+  box-shadow: 0 0 15px #38bdf8, 0 0 30px #60a5fa;
+  animation: scanMove 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+  z-index: 20;
+}
+
+@keyframes scanMove {
+  0% { top: 4%; opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { top: 94%; opacity: 0.8; }
+}
+
+.reticle-corner {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-color: #38bdf8;
+  z-index: 25;
+}
+.reticle-tl { top: 16px; left: 16px; border-top: 3px solid; border-left: 3px solid; }
+.reticle-tr { top: 16px; right: 16px; border-top: 3px solid; border-right: 3px solid; }
+.reticle-bl { bottom: 16px; left: 16px; border-bottom: 3px solid; border-left: 3px solid; }
+.reticle-br { bottom: 16px; right: 16px; border-bottom: 3px solid; border-right: 3px solid; }
+
+/* Status Badges */
+.badge-new { background-color: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+.badge-assigned { background-color: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+.badge-progress { background-color: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+.badge-completed { background-color: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
+.badge-verified { background-color: rgba(20, 184, 166, 0.2); color: #2dd4bf; border: 1px solid rgba(20, 184, 166, 0.4); }
+.badge-resolved { background-color: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); }
+.badge-rejected { background-color: rgba(156, 163, 175, 0.2); color: #9ca3af; border: 1px solid rgba(156, 163, 175, 0.4); }
+
+/* Pulse animation for high priority */
+.pulse-critical {
+  animation: pulseCrit 2s infinite;
+}
+
+@keyframes pulseCrit {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Leaflet Map overrides for dark theme */
+.leaflet-container {
+  background: #0f172a !important;
+  font-family: 'Inter', sans-serif !important;
+}
+.leaflet-popup-content-wrapper {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+}
+.leaflet-popup-tip {
+  background: #1e293b !important;
+}
+
+/* Custom map marker pulse */
+.map-pulse-marker {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 8px rgba(0,0,0,0.6);
+}
+.map-pulse-marker::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 50%;
+  border: 2px solid inherit;
+  animation: markerPulse 1.8s infinite;
+}
+@keyframes markerPulse {
+  0% { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* Vertical Timeline Styling */
+.timeline-stem {
+  position: absolute;
+  top: 16px;
+  bottom: 0;
+  left: 20px;
+  width: 2px;
+  background: #334155;
+}
+.timeline-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #38bdf8;
+  border: 3px solid #0f172a;
+  box-shadow: 0 0 0 2px #38bdf8;
+}
