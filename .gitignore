@@ -1,7 +1,0 @@
-node_modules/
-.env
-civic.db
-*.db-shm
-*.db-wal
-uploads/*
-!uploads/.gitkeep
