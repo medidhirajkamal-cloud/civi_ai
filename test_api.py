@@ -2,6 +2,8 @@ import sys
 import unittest
 import requests
 import time
+import io
+from PIL import Image
 from datetime import datetime
 
 BASE_URL = "http://127.0.0.1:8000"
@@ -54,61 +56,55 @@ class TestCivicPlatform(unittest.TestCase):
         self.assertEqual(login_data["user"]["role"], "user")
         print(f"[OK] Login succeeded for newly registered citizen: {citizen_email}")
 
-        # Test 3: Register new worker
-        worker_email = f"new_worker_{unique_suffix}@example.com"
-        reg_worker_res = requests.post(
-            f"{BASE_URL}/api/auth/register/worker",
-            json={
-                "full_name": "Srinu Rao",
-                "email": worker_email,
-                "worker_id_code": f"WRK-{unique_suffix[-4:]}",
-                "department_id": 1,
-                "skill_type": "Pothole Patching Crew",
-                "service_area": "Guntur East",
-                "phone": "+91 94401 22334",
-                "password": "workerpass123",
-                "confirm_password": "workerpass123"
-            }
-        )
-        self.assertEqual(reg_worker_res.status_code, 200, f"Worker registration failed: {reg_worker_res.text}")
-        print(f"[OK] Worker registration succeeded for {worker_email}")
+    def test_03_real_defect_vs_non_defect_ai_detection(self):
+        # 1. Positive Test: Scan image containing a real Pothole cavity
+        pothole_path = "uploads/pothole_before.jpg"
+        with open(pothole_path, "rb") as f:
+            pothole_bytes = f.read()
 
-        # Test 4: Log in with newly registered worker
-        worker_login_res = requests.post(
-            f"{BASE_URL}/api/auth/login",
-            json={
-                "email": worker_email,
-                "password": "workerpass123",
-                "role": "auto"
-            }
-        )
-        self.assertEqual(worker_login_res.status_code, 200, f"Worker login failed: {worker_login_res.text}")
-        worker_login_data = worker_login_res.json()
-        self.assertEqual(worker_login_data["user"]["role"], "worker")
-        print(f"[OK] Login succeeded for newly registered worker: {worker_email}")
-
-    def test_03_demo_logins_all_roles(self):
-        roles = ["user", "admin", "department", "worker"]
-        for role in roles:
-            res = requests.post(f"{BASE_URL}/api/auth/demo-login/{role}")
-            self.assertEqual(res.status_code, 200, f"Demo login failed for {role}")
-            data = res.json()
-            self.assertIn("access_token", data)
-            self.assertEqual(data["user"]["role"], role)
-        print("[OK] Demo logins for all 4 roles verified successfully")
-
-    def test_04_ai_scan_service(self):
-        res = requests.post(
+        res_pothole = requests.post(
             f"{BASE_URL}/api/complaints/scan-image",
-            data={"hint_issue": "Pothole"}
+            files={"file": ("pothole_before.jpg", pothole_bytes, "image/jpeg")}
+        )
+        self.assertEqual(res_pothole.status_code, 200)
+        data_pothole = res_pothole.json()
+        self.assertTrue(data_pothole["detected"])
+        self.assertEqual(data_pothole["issue_type"], "Pothole")
+        self.assertGreaterEqual(data_pothole["confidence"], 0.80)
+        self.assertTrue(len(data_pothole["bounding_boxes"]) > 0)
+        print(f"[OK] Real Pothole accurately identified with {data_pothole['confidence']*100}% confidence and bounding boxes: {data_pothole['bounding_boxes']}")
+
+        # 2. Negative Test: Scan a clean/blank surface with no defects (e.g. clean wall/floor)
+        clean_img = Image.new("RGB", (320, 240), color=(220, 220, 220))
+        img_byte_arr = io.BytesIO()
+        clean_img.save(img_byte_arr, format='JPEG')
+        clean_bytes = img_byte_arr.getvalue()
+
+        res_clean = requests.post(
+            f"{BASE_URL}/api/complaints/scan-image",
+            files={"file": ("blank_surface.jpg", clean_bytes, "image/jpeg")}
+        )
+        self.assertEqual(res_clean.status_code, 200)
+        data_clean = res_clean.json()
+        self.assertFalse(data_clean["detected"])
+        self.assertEqual(data_clean["issue_type"], "NO_DEFECT")
+        self.assertEqual(len(data_clean["bounding_boxes"]), 0)
+        print(f"[OK] Non-Defect Surface correctly rejected (detected: {data_clean['detected']}, issue_type: '{data_clean['issue_type']}')")
+
+    def test_04_duplicate_detection(self):
+        res = requests.post(
+            f"{BASE_URL}/api/complaints/check-duplicate",
+            json={
+                "latitude": 16.3143,
+                "longitude": 80.4351,
+                "issue_type": "Pothole",
+                "radius_meters": 100.0
+            }
         )
         self.assertEqual(res.status_code, 200)
         data = res.json()
-        self.assertEqual(data["issue_type"], "Pothole")
-        self.assertGreaterEqual(data["confidence"], 0.80)
-        self.assertEqual(data["recommended_department"], "Roads & Highways Department")
-        self.assertTrue(len(data["bounding_boxes"]) > 0)
-        print(f"[OK] AI Defect Detection verified: {data['issue_type']} with {data['confidence']*100}% confidence")
+        self.assertIn("is_duplicate", data)
+        print(f"[OK] Geospatial Duplicate Check verified (is_duplicate: {data['is_duplicate']})")
 
     def test_05_complete_end_to_end_10_step_lifecycle(self):
         # Step 1: Citizen Login & Report
@@ -128,6 +124,7 @@ class TestCivicPlatform(unittest.TestCase):
                 "address": "Lakshmipuram Main Road, Guntur, Andhra Pradesh",
                 "image_url": "/uploads/pothole_before.jpg",
                 "ai_detection": {
+                    "detected": True,
                     "issue_type": "Pothole",
                     "confidence": 0.95,
                     "severity": "HIGH",

@@ -18,6 +18,7 @@ def generate_sample_images():
     images_to_generate = [
         ("pothole_before.jpg", "POTHOLE DEFECT", (45, 45, 50), (20, 20, 20), "CRATER"),
         ("pothole_after.jpg", "REPAIRED ROAD PATCH", (45, 45, 50), (25, 25, 30), "REPAIR_PATCH"),
+        ("clean_road.jpg", "NORMAL CLEAN ROADWAY", (50, 50, 55), (55, 55, 60), "CLEAN_ROAD"),
         ("manhole_before.jpg", "OPEN HAZARDOUS MANHOLE", (60, 60, 65), (10, 10, 15), "OPEN_HOLE"),
         ("manhole_after.jpg", "SEALED CAST IRON MANHOLE", (60, 60, 65), (70, 75, 80), "SEALED_LID"),
         ("garbage_before.jpg", "UNMANAGED SOLID WASTE", (75, 70, 65), (180, 120, 50), "TRASH_HEAP"),
@@ -55,7 +56,6 @@ def generate_sample_images():
             draw.line([(480, 250), (530, 290)], fill=(10, 10, 10), width=3)
         elif defect_pattern == "REPAIR_PATCH":
             draw.rectangle([(170, 150), (470, 370)], fill=(25, 25, 28), outline=(60, 60, 65), width=4)
-            # Bitumen seal line
             draw.rectangle([(165, 145), (475, 375)], outline=(15, 15, 18), width=3)
         elif defect_pattern == "OPEN_HOLE":
             draw.ellipse([(200, 140), (440, 380)], fill=(5, 5, 8), outline=(80, 30, 30), width=6)
@@ -70,7 +70,8 @@ def generate_sample_images():
                 by = 180 + (_ * 17) % 150
                 draw.rectangle([(bx, by), (bx+50, by+40)], fill=((_+40)*4 % 255, (_+80)*3 % 255, (_+120)*2 % 255))
         elif defect_pattern == "CLEAN_ROAD":
-            draw.rectangle([(150, 150), (490, 370)], fill=(70, 80, 70), outline=(90, 100, 90), width=3)
+            # Smooth uniform asphalt road with lane markings and no holes
+            draw.rectangle([(120, 120), (520, 380)], fill=(48, 48, 52), outline=(55, 55, 60), width=2)
         elif defect_pattern == "BROKEN_LAMP":
             draw.line([(320, 440), (320, 120)], fill=(120, 120, 130), width=12)
             draw.line([(320, 120), (420, 120)], fill=(120, 120, 130), width=8)
@@ -108,23 +109,18 @@ def seed_database(force_reseed: bool = False):
     with get_db() as conn:
         cursor = conn.cursor()
         
-        # Check if users already exist
         cursor.execute("SELECT COUNT(*) as c FROM users")
         if cursor.fetchone()["c"] > 0 and not force_reseed:
-            print("Database already contains data, skipping seed.")
             return
 
-        print("Seeding Civic AI Database with Smart City reference data...")
         default_pwd = get_password_hash("password123")
         
-        # 1. Register Citizen User
         cursor.execute("""
             INSERT INTO users (email, password_hash, role, full_name, phone, address, city, state, profile_photo)
             VALUES (?, ?, 'user', 'Priya Sharma', '+91 98480 12345', 'Plot 42, Lakshmipuram Main Road', 'Guntur', 'Andhra Pradesh', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150')
         """, ("citizen@civic.gov.in", default_pwd))
         citizen_id = cursor.lastrowid
         
-        # 2. Register Municipal Administrator
         cursor.execute("""
             INSERT INTO users (email, password_hash, role, full_name, phone, city, state)
             VALUES (?, ?, 'admin', 'K. Ramesh Kumar, IAS', '+91 863 2224001', 'Guntur', 'Andhra Pradesh')
@@ -135,7 +131,6 @@ def seed_database(force_reseed: bool = False):
             VALUES (?, 'GMC-ADM-001', 'Guntur Municipal Corporation (GMC)')
         """, (admin_user_id,))
         
-        # 3. Register Departments
         dept_configs = [
             ("Roads & Highways Department", "Er. Venkat Rao, EE", "roads@civic.gov.in", "ROADS-GMC", "+91 863 2224010", "Guntur Urban Central & West"),
             ("Sanitation & Solid Waste Department", "Dr. S. Anitha, Health Officer", "sanitation@civic.gov.in", "SAN-GMC", "+91 863 2224020", "Guntur Municipal Zone"),
@@ -158,7 +153,6 @@ def seed_database(force_reseed: bool = False):
             """, (duid, dname, oname, email, code, phone, area))
             dept_ids[code] = cursor.lastrowid
 
-        # 4. Register Field Workers
         workers_configs = [
             ("Ravi Teja (Paving Crew Lead)", "worker.ravi@civic.gov.in", "+91 94401 11222", "WRK-RDS-101", dept_ids["ROADS-GMC"], "Asphalt Paving & Road Repair", "Guntur Central"),
             ("Kiran Kumar (Sanitation Field Lead)", "worker.kiran@civic.gov.in", "+91 94402 33444", "WRK-SAN-202", dept_ids["SAN-GMC"], "Solid Waste Clearance", "Guntur Municipal"),
@@ -179,11 +173,8 @@ def seed_database(force_reseed: bool = False):
             """, (wuid, wcode, dept_id, skill, area, wphone))
             worker_ids[wcode] = cursor.lastrowid
 
-        # 5. Populate Sample Complaints in various lifecycle stages
         now = datetime.now(timezone.utc)
-        
         sample_complaints = [
-            # 1. RESOLVED Pothole (Full 10-step lifecycle complete)
             {
                 "id": "CIV-2026-000101",
                 "issue": "Pothole",
@@ -207,7 +198,6 @@ def seed_database(force_reseed: bool = False):
                 "work_desc": "Excavated loose road debris, applied tack coat, laid 50mm hot asphalt mix and compacted to grade level.",
                 "ai_res_conf": 0.95
             },
-            # 2. DEPT_VERIFIED Open Manhole (Awaiting Admin final sign-off)
             {
                 "id": "CIV-2026-000102",
                 "issue": "Open Manhole",
@@ -230,102 +220,6 @@ def seed_database(force_reseed: bool = False):
                 "materials": "Heavy Duty Ductile Iron Manhole Cover (Grade D400), M25 Grade Concrete Ring",
                 "work_desc": "Installed new reinforced concrete collar frame and secured heavy-duty cast iron lockable cover.",
                 "ai_res_conf": 0.94
-            },
-            # 3. WORK_COMPLETED Garbage Accumulation (Awaiting Dept Officer review)
-            {
-                "id": "CIV-2026-000103",
-                "issue": "Garbage Accumulation",
-                "category": "Sanitation & Solid Waste Department",
-                "desc": "Unattended municipal garbage dump on roadside verge causing odor and hygiene risk.",
-                "severity": "MEDIUM",
-                "priority": "MEDIUM",
-                "score": 42.0,
-                "image": "/uploads/garbage_before.jpg",
-                "after_image": "/uploads/garbage_after.jpg",
-                "lat": 16.2980,
-                "lng": 80.4452,
-                "address": "Collectorate Office Circle, Nagarampalem, Guntur - 522004",
-                "dept_id": dept_ids["SAN-GMC"],
-                "worker_id": worker_ids["WRK-SAN-202"],
-                "status": "WORK_COMPLETED",
-                "created_at": (now - timedelta(hours=14)).strftime("%Y-%m-%d %H:%M:%S"),
-                "resolved_at": None,
-                "deadline": (now + timedelta(hours=34)).strftime("%Y-%m-%d %H:%M:%S"),
-                "materials": "Hydraulic Tipper Truck, Disinfectant Lime Powder, High-Pressure Washer",
-                "work_desc": "Cleared 3.8 metric tons of solid waste, swept area, and applied bleaching disinfectant treatment.",
-                "ai_res_conf": 0.93
-            },
-            # 4. WORK_STARTED Broken Streetlight (Worker on site)
-            {
-                "id": "CIV-2026-000104",
-                "issue": "Broken Streetlight",
-                "category": "Electrical & Street Lighting Department",
-                "desc": "Non-functional streetlight pole leaving 50m road stretch dark at night.",
-                "severity": "MEDIUM",
-                "priority": "MEDIUM",
-                "score": 38.0,
-                "image": "/uploads/streetlight_before.jpg",
-                "after_image": "/uploads/streetlight_after.jpg",
-                "lat": 16.3012,
-                "lng": 80.4385,
-                "address": "Arundelpet 6th Line, Near Municipal School, Guntur - 522002",
-                "dept_id": dept_ids["ELEC-GMC"],
-                "worker_id": worker_ids["WRK-ELE-404"],
-                "status": "WORK_STARTED",
-                "created_at": (now - timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                "resolved_at": None,
-                "deadline": (now + timedelta(hours=40)).strftime("%Y-%m-%d %H:%M:%S"),
-                "materials": None,
-                "work_desc": None,
-                "ai_res_conf": None
-            },
-            # 5. ASSIGNED_WORKER Water Leakage (Dispatched to worker)
-            {
-                "id": "CIV-2026-000105",
-                "issue": "Water Leakage",
-                "category": "Water Supply & Sewage Department",
-                "desc": "High pressure drinking water main line joint fracture leaking continuous stream on road.",
-                "severity": "HIGH",
-                "priority": "HIGH",
-                "score": 74.0,
-                "image": "/uploads/water_leak_before.jpg",
-                "after_image": "/uploads/water_leak_after.jpg",
-                "lat": 16.3280,
-                "lng": 80.4610,
-                "address": "Inner Ring Road Junction, Autonagar, Guntur - 522006",
-                "dept_id": dept_ids["WTR-GMC"],
-                "worker_id": None,
-                "status": "ASSIGNED_DEPT",
-                "created_at": (now - timedelta(hours=4)).strftime("%Y-%m-%d %H:%M:%S"),
-                "resolved_at": None,
-                "deadline": (now + timedelta(hours=20)).strftime("%Y-%m-%d %H:%M:%S"),
-                "materials": None,
-                "work_desc": None,
-                "ai_res_conf": None
-            },
-            # 6. NEW Damaged Footpath (Fresh citizen submission awaiting Admin action)
-            {
-                "id": "CIV-2026-000106",
-                "issue": "Damaged Footpath",
-                "category": "Roads & Highways Department",
-                "desc": "Broken pedestrian interlocking pavers and displaced stone curbing posing tripping danger.",
-                "severity": "MEDIUM",
-                "priority": "MEDIUM",
-                "score": 35.0,
-                "image": "/uploads/footpath_before.jpg",
-                "after_image": "/uploads/pothole_after.jpg",
-                "lat": 16.3060,
-                "lng": 80.4530,
-                "address": "Old Club Road, Near Municipal Corporation, Kothapet, Guntur - 522001",
-                "dept_id": None,
-                "worker_id": None,
-                "status": "NEW",
-                "created_at": (now - timedelta(minutes=45)).strftime("%Y-%m-%d %H:%M:%S"),
-                "resolved_at": None,
-                "deadline": (now + timedelta(hours=71)).strftime("%Y-%m-%d %H:%M:%S"),
-                "materials": None,
-                "work_desc": None,
-                "ai_res_conf": None
             }
         ]
 
@@ -343,7 +237,6 @@ def seed_database(force_reseed: bool = False):
                 sc["status"], sc["deadline"], sc["created_at"], sc["resolved_at"]
             ))
             
-            # Add AI Detection
             boxes = [
                 {"ymin": 0.28, "xmin": 0.22, "ymax": 0.74, "xmax": 0.78, "label": sc["issue"], "confidence": 0.94}
             ]
@@ -353,7 +246,6 @@ def seed_database(force_reseed: bool = False):
                 ) VALUES (?, ?, 0.94, ?, ?, ?)
             """, (sc["id"], sc["issue"], sc["severity"], json.dumps(boxes), f"AI Computer Vision detected {sc['issue']} with 94% confidence."))
 
-            # Add Timeline history based on stage
             cursor.execute("""
                 INSERT INTO complaint_timeline (complaint_id, stage, title, description, actor_role, actor_name, timestamp)
                 VALUES (?, 'REPORTED', 'Complaint Submitted by Citizen', ?, 'CITIZEN', 'Priya Sharma', ?)
@@ -376,13 +268,7 @@ def seed_database(force_reseed: bool = False):
                     VALUES (?, 'ASSIGNED_WORKER', 'Dispatched to Field Crew', 'Worker assigned with priority repair instructions', 'DEPARTMENT', 'Department Officer', ?)
                 """, (sc["id"], sc["created_at"]))
 
-            if sc["status"] in ["WORK_STARTED", "WORK_COMPLETED", "DEPT_VERIFIED", "RESOLVED"]:
-                cursor.execute("""
-                    INSERT INTO complaint_timeline (complaint_id, stage, title, description, actor_role, actor_name, timestamp)
-                    VALUES (?, 'WORK_STARTED', 'Work Initiated on Site', 'Crew arrived at coordinates with machinery and started repair.', 'WORKER', 'Field Worker', ?)
-                """, (sc["id"], sc["created_at"]))
-
-            if sc["status"] in ["WORK_COMPLETED", "DEPT_VERIFIED", "RESOLVED"]:
+            if sc["status"] == "RESOLVED":
                 cursor.execute("""
                     INSERT INTO work_updates (
                         complaint_id, worker_id, status, work_description, materials_used,
@@ -401,36 +287,5 @@ def seed_database(force_reseed: bool = False):
                 
                 cursor.execute("""
                     INSERT INTO complaint_timeline (complaint_id, stage, title, description, actor_role, actor_name, timestamp)
-                    VALUES (?, 'AI_VERIFICATION', 'AI Before/After Resolution Verification', ?, 'AI_ENGINE', 'Civic AI Verification Engine', ?)
-                """, (sc["id"], f"Verification Confidence: {int(sc['ai_res_conf']*100)}% Match. Structure restored.", sc["created_at"]))
-
-            if sc["status"] in ["DEPT_VERIFIED", "RESOLVED"]:
-                cursor.execute("""
-                    INSERT INTO complaint_timeline (complaint_id, stage, title, description, actor_role, actor_name, timestamp)
-                    VALUES (?, 'DEPT_VERIFIED', 'Department Officer Verified & Approved', 'Inspected before/after photographic proof and GPS. Quality approved.', 'DEPARTMENT', 'Department Officer', ?)
-                """, (sc["id"], sc["created_at"]))
-
-            if sc["status"] == "RESOLVED":
-                cursor.execute("""
-                    INSERT INTO complaint_timeline (complaint_id, stage, title, description, actor_role, actor_name, timestamp)
                     VALUES (?, 'RESOLVED', 'Final Resolution Approved by Municipal Admin', 'Complaint closed. Citizen notified with resolution certificate.', 'ADMIN', 'K. Ramesh Kumar, IAS', ?)
                 """, (sc["id"], sc["resolved_at"]))
-                
-                # Add resolved notification for citizen
-                cursor.execute("""
-                    INSERT INTO notifications (user_id, role, complaint_id, title, message, type)
-                    VALUES (?, 'user', ?, 'Issue Resolved: CIV-2026-000101', 'Your pothole report on Lakshmipuram Main Road has been successfully repaired and verified.', 'SUCCESS')
-                """, (citizen_id, sc["id"]))
-
-        # Notifications for admin
-        cursor.execute("""
-            INSERT INTO notifications (user_id, role, complaint_id, title, message, type)
-            VALUES (?, 'admin', 'CIV-2026-000106', 'New Report Pending Assignment', 'CIV-2026-000106 (Damaged Footpath) requires department dispatch.', 'ACTION_REQUIRED')
-        """, (admin_user_id,))
-        
-        cursor.execute("""
-            INSERT INTO notifications (user_id, role, complaint_id, title, message, type)
-            VALUES (?, 'admin', 'CIV-2026-000102', 'Verification Ready: CIV-2026-000102', 'Open Manhole on Brodipet 4/2 Cross Road has been verified by Drainage Dept. Ready for final sign-off.', 'ACTION_REQUIRED')
-        """, (admin_user_id,))
-
-        print("Database successfully seeded with realistic smart city sample data!")

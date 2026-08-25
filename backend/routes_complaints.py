@@ -58,7 +58,7 @@ async def scan_image(
 ):
     try:
         image_bytes = None
-        filename = "camera_capture.jpg"
+        filename = None
         
         if file:
             filename = file.filename or "upload.jpg"
@@ -67,12 +67,25 @@ async def scan_image(
             if "," in image_base64:
                 image_base64 = image_base64.split(",", 1)[1]
             image_bytes = base64.b64decode(image_base64)
+            filename = "camera_capture.jpg"
             
         result = ai_engine.detect_defects(image_bytes=image_bytes, filename=filename, hint_issue=hint_issue)
         return result
     except Exception as e:
         print(f"Scan endpoint exception: {e}")
-        return ai_engine.detect_defects(hint_issue=hint_issue or "Pothole")
+        if hint_issue:
+            return ai_engine.detect_defects(hint_issue=hint_issue)
+        return AIDetectionResponse(
+            detected=False,
+            issue_type="NO_DEFECT",
+            confidence=0.0,
+            severity="LOW",
+            bounding_boxes=[],
+            description="Unable to analyze image. Please aim at an infrastructure defect.",
+            recommended_department="None",
+            dept_code="NONE",
+            base_priority="LOW"
+        )
 
 @router.post("/check-duplicate", response_model=DuplicateCheckResponse)
 def check_duplicate(req: DuplicateCheckRequest):

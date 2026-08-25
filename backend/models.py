@@ -64,10 +64,11 @@ class BoundingBox(BaseModel):
     confidence: float
 
 class AIDetectionResponse(BaseModel):
+    detected: bool = True
     issue_type: str
     confidence: float
     severity: str
-    bounding_boxes: List[BoundingBox]
+    bounding_boxes: List[BoundingBox] = []
     description: str
     recommended_department: str
     dept_code: str
