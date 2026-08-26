@@ -21,7 +21,7 @@ class TestCivicPlatform(unittest.TestCase):
         unique_suffix = str(int(time.time()))
         
         # Test 1: Register new citizen
-        citizen_email = f"new_citizen_{unique_suffix}@example.com"
+        citizen_email = f"citizen_{unique_suffix}@example.com"
         reg_res = requests.post(
             f"{BASE_URL}/api/auth/register/user",
             json={
@@ -56,40 +56,55 @@ class TestCivicPlatform(unittest.TestCase):
         self.assertEqual(login_data["user"]["role"], "user")
         print(f"[OK] Login succeeded for newly registered citizen: {citizen_email}")
 
-    def test_03_real_defect_vs_non_defect_ai_detection(self):
-        # 1. Positive Test: Scan image containing a real Pothole cavity
+    def test_03_strict_pothole_vs_face_and_plane_surface_detection(self):
+        # 1. Real Pothole positive detection
         pothole_path = "uploads/pothole_before.jpg"
         with open(pothole_path, "rb") as f:
             pothole_bytes = f.read()
 
         res_pothole = requests.post(
             f"{BASE_URL}/api/complaints/scan-image",
-            files={"file": ("pothole_before.jpg", pothole_bytes, "image/jpeg")}
+            files={"file": ("pothole.jpg", pothole_bytes, "image/jpeg")}
         )
         self.assertEqual(res_pothole.status_code, 200)
         data_pothole = res_pothole.json()
         self.assertTrue(data_pothole["detected"])
         self.assertEqual(data_pothole["issue_type"], "Pothole")
-        self.assertGreaterEqual(data_pothole["confidence"], 0.80)
+        self.assertGreaterEqual(data_pothole["confidence"], 0.85)
         self.assertTrue(len(data_pothole["bounding_boxes"]) > 0)
-        print(f"[OK] Real Pothole accurately identified with {data_pothole['confidence']*100}% confidence and bounding boxes: {data_pothole['bounding_boxes']}")
+        print(f"[OK] 1. Real Pothole accurately identified with {data_pothole['confidence']*100}% confidence and boxes: {data_pothole['bounding_boxes']}")
 
-        # 2. Negative Test: Scan a clean/blank surface with no defects (e.g. clean wall/floor)
-        clean_img = Image.new("RGB", (320, 240), color=(220, 220, 220))
-        img_byte_arr = io.BytesIO()
-        clean_img.save(img_byte_arr, format='JPEG')
-        clean_bytes = img_byte_arr.getvalue()
+        # 2. Human Face / Person negative rejection test
+        face_img = Image.new("RGB", (320, 240), color=(215, 155, 125))
+        face_buf = io.BytesIO()
+        face_img.save(face_buf, format='JPEG')
 
-        res_clean = requests.post(
+        res_face = requests.post(
             f"{BASE_URL}/api/complaints/scan-image",
-            files={"file": ("blank_surface.jpg", clean_bytes, "image/jpeg")}
+            files={"file": ("face_capture.jpg", face_buf.getvalue(), "image/jpeg")}
         )
-        self.assertEqual(res_clean.status_code, 200)
-        data_clean = res_clean.json()
-        self.assertFalse(data_clean["detected"])
-        self.assertEqual(data_clean["issue_type"], "NO_DEFECT")
-        self.assertEqual(len(data_clean["bounding_boxes"]), 0)
-        print(f"[OK] Non-Defect Surface correctly rejected (detected: {data_clean['detected']}, issue_type: '{data_clean['issue_type']}')")
+        self.assertEqual(res_face.status_code, 200)
+        data_face = res_face.json()
+        self.assertFalse(data_face["detected"])
+        self.assertEqual(data_face["issue_type"], "NO_DEFECT")
+        self.assertIn("face", data_face["description"].lower())
+        print(f"[OK] 2. Human Face scan correctly REJECTED (detected: {data_face['detected']}, description: '{data_face['description']}')")
+
+        # 3. Plane / Flat Surface (wall/desk/screen) negative rejection test
+        plane_img = Image.new("RGB", (320, 240), color=(230, 230, 230))
+        plane_buf = io.BytesIO()
+        plane_img.save(plane_buf, format='JPEG')
+
+        res_plane = requests.post(
+            f"{BASE_URL}/api/complaints/scan-image",
+            files={"file": ("plane_surface.jpg", plane_buf.getvalue(), "image/jpeg")}
+        )
+        self.assertEqual(res_plane.status_code, 200)
+        data_plane = res_plane.json()
+        self.assertFalse(data_plane["detected"])
+        self.assertEqual(data_plane["issue_type"], "NO_DEFECT")
+        self.assertIn("plane", data_plane["description"].lower())
+        print(f"[OK] 3. Plane / Flat surface scan correctly REJECTED (detected: {data_plane['detected']}, description: '{data_plane['description']}')")
 
     def test_04_duplicate_detection(self):
         res = requests.post(

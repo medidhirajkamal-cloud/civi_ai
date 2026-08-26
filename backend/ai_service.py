@@ -24,9 +24,11 @@ class BaseAIService(ABC):
 class ModularCivicAIService(BaseAIService):
     """
     Robust AI Vision & Civic Defect Detection Engine
-    - Precision Road Cavity / Pothole detection
-    - Rejection of non-defects (clean walls, blank desks, normal clear pavements, faces)
-    - Full Gemini Vision API fallback when key is provided
+    - Precision Road Cavity / Pothole & Drainage Issue Detection
+    - Strict rejection with error reasons for:
+      * Human Faces & Persons (Skin tone & portrait filtering)
+      * Plane / Flat Surfaces (Blank walls, tables, screens, smooth floors)
+      * Indoor objects & Non-infrastructure targets
     """
 
     def __init__(self, api_key: Optional[str] = None):
@@ -53,6 +55,18 @@ class ModularCivicAIService(BaseAIService):
             
             dark_ratio = sum(1 for l in luminances if l < 40) / len(luminances)
             bright_ratio = sum(1 for l in luminances if l > 220) / len(luminances)
+            
+            # Skin tone detection in RGB space (for human face/person filtering)
+            skin_pixels = sum(
+                1 for p in pixels
+                if p[0] > 60 and p[1] > 40 and p[2] > 20 and
+                   p[0] > p[1] and p[0] > p[2] and
+                   (p[0] - p[1]) >= 12 and (p[0] - p[2]) >= 15 and
+                   abs(p[0] - p[1]) > 10
+            )
+            skin_ratio = skin_pixels / len(pixels)
+
+            # Blue / Cyan ratio for water leakage
             blue_ratio = sum(1 for p in pixels if p[2] > p[0] + 20 and p[2] > p[1] + 10) / len(pixels)
             color_entropy = sum(abs(p[0]-p[1]) + abs(p[1]-p[2]) + abs(p[0]-p[2]) for p in pixels) / (len(pixels) * 3)
 
@@ -93,8 +107,9 @@ class ModularCivicAIService(BaseAIService):
             cavity_detected = False
             cavity_box = None
             
-            # If cavity cells are present with depth or distinct dark pocket with edge contrast
-            if (len(cavity_cells) >= 1 and cavity_depth > 6.0 and edge_energy > 5.0) or (dark_ratio > 0.15 and edge_energy > 8.0 and contrast > 10.0):
+            # Pothole cavity condition: Depression depth with road texture and edge gradient
+            if (len(cavity_cells) >= 1 and cavity_depth > 5.5 and edge_energy > 4.5 and contrast > 8.0 and skin_ratio < 0.10) or \
+               (dark_ratio > 0.15 and edge_energy > 7.0 and contrast > 10.0 and skin_ratio < 0.10):
                 cavity_detected = True
                 if cavity_cells:
                     min_gx = min(c[0] for c in cavity_cells)
@@ -121,6 +136,7 @@ class ModularCivicAIService(BaseAIService):
                 "contrast": contrast,
                 "dark_ratio": dark_ratio,
                 "bright_ratio": bright_ratio,
+                "skin_ratio": skin_ratio,
                 "blue_ratio": blue_ratio,
                 "color_entropy": color_entropy,
                 "edge_energy": edge_energy,
@@ -141,11 +157,15 @@ class ModularCivicAIService(BaseAIService):
             endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.api_key}"
             
             prompt = """
-            Analyze this image to determine if a real civic infrastructure defect is present (e.g. Pothole, Road Crack, Broken Road, Open Manhole, Water Leak, Garbage Dump, Broken Streetlight).
-            If the image is clean/normal, an indoor room, face, blank desk, or contains no defect, return:
-            {"detected": false, "issue_type": "NO_DEFECT", "confidence": 0.0, "severity": "LOW", "bounding_boxes": [], "description": "Clear surface - No defect detected."}
-            If a defect is present, return:
-            {"detected": true, "issue_type": "Pothole", "confidence": 0.94, "severity": "HIGH", "bounding_boxes": [{"ymin": 0.3, "xmin": 0.2, "ymax": 0.7, "xmax": 0.8, "label": "Pothole", "confidence": 0.94}], "description": "Pothole detected on roadway."}
+            You are a strict municipal computer vision inspector. Analyze this image to determine if an actual public infrastructure defect (specifically Potholes, Road Cracks, Open Manholes, Water Leakage, Drainage Blockage) is present.
+            
+            CRITICAL RULES:
+            1. If the image is a HUMAN FACE, PERSON, BODY, INDOOR ROOM, DESK, CEILING, or BLANK WALL, return:
+               {"detected": false, "issue_type": "NO_DEFECT", "confidence": 0.0, "severity": "LOW", "bounding_boxes": [], "description": "Invalid Scan: Face/Person or indoor target detected. The AI scanner only detects real road potholes and drainage issues."}
+            2. If the image is a PLANE/FLAT SURFACE (e.g. clean smooth wall, plain floor, blank asphalt with NO hole), return:
+               {"detected": false, "issue_type": "NO_DEFECT", "confidence": 0.0, "severity": "LOW", "bounding_boxes": [], "description": "Invalid Scan: Plane/flat surface detected with no physical defect. Please aim directly at a pothole or drainage issue."}
+            3. Only if a real pothole, open manhole, road crack, or water/drainage issue exists, return:
+               {"detected": true, "issue_type": "Pothole", "confidence": 0.94, "severity": "HIGH", "bounding_boxes": [{"ymin": 0.3, "xmin": 0.2, "ymax": 0.7, "xmax": 0.8, "label": "Pothole", "confidence": 0.94}], "description": "Real pothole detected on roadway."}
             """
             
             payload = {
@@ -166,10 +186,10 @@ class ModularCivicAIService(BaseAIService):
                     return AIDetectionResponse(
                         detected=False,
                         issue_type="NO_DEFECT",
-                        confidence=float(parsed.get("confidence", 0.0)),
+                        confidence=0.0,
                         severity="LOW",
                         bounding_boxes=[],
-                        description=parsed.get("description", "No infrastructure defect detected."),
+                        description=parsed.get("description", "No pothole or drainage defect detected in this image."),
                         recommended_department="None",
                         dept_code="NONE",
                         base_priority="LOW"
@@ -196,7 +216,6 @@ class ModularCivicAIService(BaseAIService):
                     base_priority=mapping["base_priority"]
                 )
         except Exception as e:
-            print(f"Gemini API fallback: {e}")
             return None
 
     def detect_defects(self, image_bytes: Optional[bytes] = None, filename: Optional[str] = None, hint_issue: Optional[str] = None) -> AIDetectionResponse:
@@ -230,17 +249,29 @@ class ModularCivicAIService(BaseAIService):
                 raw_response={"engine": "CivicVision-v2.6", "mode": "sample_preset"}
             )
 
-        # 4. Filename keywords if uploaded directly
+        # 4. Check negative filename keywords
         if filename:
             name_lower = filename.lower()
-            if "clean" in name_lower or "normal" in name_lower or "blank" in name_lower:
+            if "face" in name_lower or "person" in name_lower:
                 return AIDetectionResponse(
                     detected=False,
                     issue_type="NO_DEFECT",
-                    confidence=0.05,
+                    confidence=0.0,
                     severity="LOW",
                     bounding_boxes=[],
-                    description="Clean road surface verified. No potholes or infrastructure defects detected.",
+                    description="Invalid Target: Human face or person detected. The AI system only monitors road potholes and drainage issues.",
+                    recommended_department="None",
+                    dept_code="NONE",
+                    base_priority="LOW"
+                )
+            if "clean" in name_lower or "normal" in name_lower or "blank" in name_lower or "plane" in name_lower or "wall" in name_lower:
+                return AIDetectionResponse(
+                    detected=False,
+                    issue_type="NO_DEFECT",
+                    confidence=0.0,
+                    severity="LOW",
+                    bounding_boxes=[],
+                    description="Invalid Target: Plane/flat surface detected. No road potholes or drainage defects found.",
                     recommended_department="None",
                     dept_code="NONE",
                     base_priority="LOW"
@@ -271,27 +302,43 @@ class ModularCivicAIService(BaseAIService):
                 confidence=0.0,
                 severity="LOW",
                 bounding_boxes=[],
-                description="Unable to analyze frame. Please aim camera at a well-lit road area.",
+                description="Unable to analyze image. Please aim camera at a well-lit road defect or drainage issue.",
                 recommended_department="None",
                 dept_code="NONE",
                 base_priority="LOW"
             )
 
-        # Flat / Blank / Extreme exposure Filter (Clean walls, blank desks, plain floor)
+        # A. HUMAN FACE / PERSON REJECTION FILTER
+        if features.get("skin_ratio", 0.0) > 0.12:
+            return AIDetectionResponse(
+                detected=False,
+                issue_type="NO_DEFECT",
+                confidence=0.0,
+                severity="LOW",
+                bounding_boxes=[],
+                description="Invalid Target: Human face / person detected. The AI system only monitors road potholes and drainage infrastructure problems.",
+                recommended_department="None",
+                dept_code="NONE",
+                base_priority="LOW",
+                raw_response={"rejection": "FACE_OR_PERSON_DETECTED", "skin_ratio": features["skin_ratio"]}
+            )
+
+        # B. PLANE / FLAT SURFACE REJECTION FILTER (Clean walls, blank desks, plain floor, smooth road without holes)
         if features["contrast"] < 8.0 or features["edge_energy"] < 3.5 or features["brightness"] > 238 or features["brightness"] < 15:
             return AIDetectionResponse(
                 detected=False,
                 issue_type="NO_DEFECT",
-                confidence=0.05,
+                confidence=0.0,
                 severity="LOW",
                 bounding_boxes=[],
-                description="Uniform / clear surface detected. No physical road defect or pothole identified.",
+                description="Invalid Target: Plane/flat surface detected with no road cavity or drainage defect. Please point camera directly at a pothole or drainage issue.",
                 recommended_department="None",
                 dept_code="NONE",
-                base_priority="LOW"
+                base_priority="LOW",
+                raw_response={"rejection": "PLANE_SURFACE_DETECTED", "contrast": features["contrast"], "edge_energy": features["edge_energy"]}
             )
 
-        # Real Pothole / Crater Spatial Cavity Detection
+        # C. REAL POTHOLE / ROAD CAVITY DETECTION
         if features.get("cavity_detected") and features.get("cavity_box"):
             conf = features["cavity_box"].confidence
             mapping = DEFECT_CATEGORIES["Pothole"]
@@ -308,8 +355,8 @@ class ModularCivicAIService(BaseAIService):
                 raw_response={"engine": "SpatialCavityDetector", "cavity_depth": features["cavity_depth"]}
             )
 
-        # Water Leakage / Pipeline Burst (High blue reflectance on ground)
-        if features["blue_ratio"] > 0.20 and features["edge_energy"] > 10.0:
+        # D. WATER LEAKAGE / PIPELINE RUPTURE (High blue reflectance on ground)
+        if features["blue_ratio"] > 0.18 and features["edge_energy"] > 8.0:
             mapping = DEFECT_CATEGORIES["Water Leakage"]
             conf = round(min(0.95, 0.80 + features["blue_ratio"]), 2)
             box = BoundingBox(ymin=0.25, xmin=0.20, ymax=0.75, xmax=0.80, label="Water Leakage Pool", confidence=conf)
@@ -326,7 +373,7 @@ class ModularCivicAIService(BaseAIService):
                 raw_response={"engine": "SpectralReflectanceDetector"}
             )
 
-        # High Edge Gradient + Crack Fracture Pattern
+        # E. CRACKS IN ROAD
         if features["edge_energy"] > 24.0 and features["contrast"] > 35.0:
             mapping = DEFECT_CATEGORIES["Cracks in Road"]
             conf = 0.88
@@ -344,7 +391,7 @@ class ModularCivicAIService(BaseAIService):
                 raw_response={"engine": "EdgeGradientDetector"}
             )
 
-        # Solid Waste / Garbage Cluster (High multi-color entropy)
+        # F. SOLID WASTE / GARBAGE ACCUMULATION
         if features["color_entropy"] > 40.0 and features["edge_energy"] > 16.0:
             mapping = DEFECT_CATEGORIES["Garbage Accumulation"]
             conf = 0.89
@@ -362,14 +409,14 @@ class ModularCivicAIService(BaseAIService):
                 raw_response={"engine": "ColorEntropyDetector"}
             )
 
-        # Default: No defect identified
+        # G. DEFAULT: NO DEFECT DETECTED ON THIS SURFACE
         return AIDetectionResponse(
             detected=False,
             issue_type="NO_DEFECT",
-            confidence=0.12,
+            confidence=0.0,
             severity="LOW",
             bounding_boxes=[],
-            description="Clear / normal surface analyzed. No potholes, structural cracks, or infrastructure defects identified.",
+            description="No road pothole or drainage defect detected. Surface appears normal.",
             recommended_department="None",
             dept_code="NONE",
             base_priority="LOW",

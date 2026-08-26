@@ -3,35 +3,41 @@ from PIL import Image
 from backend.ai_service import ai_engine
 
 def test():
-    # 1. Blank/Solid image (e.g. wall/desk/ceiling)
-    blank_img = Image.new('RGB', (640, 480), (220, 220, 220))
-    buf = io.BytesIO()
-    blank_img.save(buf, format='JPEG')
-    res_blank = ai_engine.detect_defects(buf.getvalue())
-    print("Blank Wall/Desk Result:")
-    print("Detected:", res_blank.detected, "| Issue:", res_blank.issue_type, "| Conf:", res_blank.confidence)
+    # 1. Human Face / Skin Portrait Image
+    face_img = Image.new('RGB', (640, 480), (215, 155, 125))
+    buf_face = io.BytesIO()
+    face_img.save(buf_face, format='JPEG')
+    res_face = ai_engine.detect_defects(buf_face.getvalue())
+    print("1. Human Face / Person Test:")
+    print("   Detected:", res_face.detected, "| Issue:", res_face.issue_type, "| Desc:", res_face.description)
+    assert not res_face.detected, "Face should NOT be detected as defect"
 
-    # 2. Smooth road image without pothole
-    clean_road = Image.new('RGB', (640, 480), (50, 50, 50))
-    buf2 = io.BytesIO()
-    clean_road.save(buf2, format='JPEG')
-    res_clean = ai_engine.detect_defects(buf2.getvalue())
-    print("\nClean Smooth Road Result:")
-    print("Detected:", res_clean.detected, "| Issue:", res_clean.issue_type, "| Conf:", res_clean.confidence)
+    # 2. Plane / Flat Surface (White Wall / Plain Desk)
+    plane_img = Image.new('RGB', (640, 480), (220, 220, 220))
+    buf_plane = io.BytesIO()
+    plane_img.save(buf_plane, format='JPEG')
+    res_plane = ai_engine.detect_defects(buf_plane.getvalue())
+    print("\n2. Plane / Flat Surface Test:")
+    print("   Detected:", res_plane.detected, "| Issue:", res_plane.issue_type, "| Desc:", res_plane.description)
+    assert not res_plane.detected, "Plane surface should NOT be detected as defect"
 
-    # 3. Pothole image
+    # 3. Real Pothole Road Image
     with open('uploads/pothole_before.jpg', 'rb') as f:
         pothole_bytes = f.read()
-    res_pothole = ai_engine.detect_defects(pothole_bytes, filename=None)
-    print("\nReal Pothole Image Result (No filename passed):")
-    print("Detected:", res_pothole.detected, "| Issue:", res_pothole.issue_type, "| Conf:", res_pothole.confidence, "| Boxes:", res_pothole.bounding_boxes)
+    res_pothole = ai_engine.detect_defects(pothole_bytes)
+    print("\n3. Real Pothole Image Test:")
+    print("   Detected:", res_pothole.detected, "| Issue:", res_pothole.issue_type, "| Conf:", res_pothole.confidence, "| Boxes:", res_pothole.bounding_boxes)
+    assert res_pothole.detected, "Real pothole MUST be detected"
 
-    # 4. Open Manhole image
+    # 4. Open Manhole Image
     with open('uploads/manhole_before.jpg', 'rb') as f:
         manhole_bytes = f.read()
-    res_manhole = ai_engine.detect_defects(manhole_bytes, filename=None)
-    print("\nReal Manhole Image Result (No filename passed):")
-    print("Detected:", res_manhole.detected, "| Issue:", res_manhole.issue_type, "| Conf:", res_manhole.confidence, "| Boxes:", res_manhole.bounding_boxes)
+    res_manhole = ai_engine.detect_defects(manhole_bytes)
+    print("\n4. Open Manhole / Drainage Test:")
+    print("   Detected:", res_manhole.detected, "| Issue:", res_manhole.issue_type, "| Conf:", res_manhole.confidence, "| Boxes:", res_manhole.bounding_boxes)
+    assert res_manhole.detected, "Drainage issue MUST be detected"
+
+    print("\n[ALL 4 AI TARGET & REJECTION TESTS PASSED SUCCESSFULLY!]")
 
 if __name__ == '__main__':
     test()

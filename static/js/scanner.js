@@ -9,7 +9,7 @@ let currentGPS = { lat: 16.3142, lng: 80.4350, accuracy: 12.0, address: "Lakshmi
 let isScanningActive = false;
 let isAnalyzingFrame = false;
 
-// Sample defect catalog for 1-click testing (including real defects & clean road negative test)
+// Sample defect catalog for testing (including real defects & clean plane surface negative test)
 const SAMPLE_DEFECTS = [
   { name: "Pothole", image: "/uploads/pothole_before.jpg", category: "Roads & Highways Department", severity: "HIGH", lat: 16.3142, lng: 80.4350, address: "Lakshmipuram Main Road, Guntur, AP", is_defect: true },
   { name: "Open Manhole", image: "/uploads/manhole_before.jpg", category: "Drainage & Stormwater Department", severity: "CRITICAL", lat: 16.3075, lng: 80.4420, address: "Brodipet 4/2 Cross Road, Guntur, AP", is_defect: true },
@@ -17,7 +17,7 @@ const SAMPLE_DEFECTS = [
   { name: "Broken Streetlight", image: "/uploads/streetlight_before.jpg", category: "Electrical & Street Lighting Department", severity: "MEDIUM", lat: 16.3012, lng: 80.4385, address: "Arundelpet 6th Line, Guntur, AP", is_defect: true },
   { name: "Water Leakage", image: "/uploads/water_leak_before.jpg", category: "Water Supply & Sewage Department", severity: "HIGH", lat: 16.3280, lng: 80.4610, address: "Inner Ring Road Junction, Autonagar, Guntur, AP", is_defect: true },
   { name: "Damaged Footpath", image: "/uploads/footpath_before.jpg", category: "Roads & Highways Department", severity: "MEDIUM", lat: 16.3060, lng: 80.4530, address: "Old Club Road, Kothapet, Guntur, AP", is_defect: true },
-  { name: "Normal Road (Clean - No Defect)", image: "/uploads/clean_road.jpg", category: "None", severity: "LOW", lat: 16.3075, lng: 80.4420, address: "Amaravati Road, Guntur, AP", is_defect: false }
+  { name: "Plane Road (No Defect / Clean)", image: "/uploads/clean_road.jpg", category: "None", severity: "LOW", lat: 16.3075, lng: 80.4420, address: "Amaravati Road, Guntur, AP", is_defect: false }
 ];
 
 async function openScannerModal() {
@@ -30,8 +30,11 @@ async function openScannerModal() {
   document.getElementById("scanner-review-form").classList.add("hidden");
   document.getElementById("scanner-loading-state").classList.add("hidden");
   
+  const errBanner = document.getElementById("scanner-error-banner");
+  if (errBanner) errBanner.classList.add("hidden");
+
   const statusElem = document.getElementById("camera-status-text");
-  if (statusElem) statusElem.innerHTML = `<span class="text-sky-400 font-medium">Scanning live view... Aim camera at a road defect or pothole</span>`;
+  if (statusElem) statusElem.innerHTML = `<span class="text-sky-400 font-medium">Scanning live view... Aim camera directly at a road pothole or drainage issue</span>`;
 
   // Fetch GPS Coordinates immediately
   acquireDeviceGPS();
@@ -135,11 +138,11 @@ function populateSampleSelector() {
   if (!container) return;
   
   container.innerHTML = SAMPLE_DEFECTS.map((sample, idx) => `
-    <button type="button" onclick="loadSampleDefect(${idx})" class="text-left p-2 rounded-lg ${sample.is_defect ? 'bg-slate-800/80 hover:bg-blue-600/30 border-slate-700 hover:border-blue-500' : 'bg-emerald-950/40 hover:bg-emerald-900/60 border-emerald-700/60'} border transition-all flex items-center space-x-2.5">
+    <button type="button" onclick="loadSampleDefect(${idx})" class="text-left p-2 rounded-lg ${sample.is_defect ? 'bg-slate-800/80 hover:bg-blue-600/30 border-slate-700 hover:border-blue-500' : 'bg-rose-950/30 hover:bg-rose-900/50 border-rose-700/60'} border transition-all flex items-center space-x-2.5">
       <img src="${sample.image}" class="w-10 h-10 object-cover rounded bg-slate-900 flex-shrink-0" onerror="this.src='/uploads/pothole_before.jpg'">
       <div class="overflow-hidden">
         <div class="text-xs font-bold text-slate-100 truncate">${sample.name}</div>
-        <div class="text-[10px] ${sample.is_defect ? 'text-slate-400' : 'text-emerald-400 font-semibold'} truncate">${sample.is_defect ? `${sample.severity} Defect` : 'Negative Test'}</div>
+        <div class="text-[10px] ${sample.is_defect ? 'text-slate-400' : 'text-rose-300 font-semibold'} truncate">${sample.is_defect ? `${sample.severity} Defect` : 'Negative Plane Test'}</div>
       </div>
     </button>
   `).join("");
@@ -268,8 +271,12 @@ async function runAIScanOnUrl(imageUrl, hintIssue = null, fileBlob = null) {
   const preview = document.getElementById("scanner-preview-container");
   const reviewForm = document.getElementById("scanner-review-form");
   const statusElem = document.getElementById("camera-status-text");
+  const errBanner = document.getElementById("scanner-error-banner");
+  const errText = document.getElementById("scanner-error-text");
+  const errTitle = document.getElementById("scanner-error-title");
 
   if (loading) loading.classList.remove("hidden");
+  if (errBanner) errBanner.classList.add("hidden");
   isAnalyzingFrame = true;
 
   try {
@@ -289,13 +296,17 @@ async function runAIScanOnUrl(imageUrl, hintIssue = null, fileBlob = null) {
     if (loading) loading.classList.add("hidden");
     isAnalyzingFrame = false;
 
-    // Check if defect was identified or if surface is clean / no defect
+    // Strict validation: Reject non-defects, faces, plane surfaces, and clean areas!
     if (!aiRes.detected || aiRes.issue_type === "NO_DEFECT" || aiRes.confidence < 0.35) {
-      // Negative detection: No defect found!
-      if (statusElem) {
-        statusElem.innerHTML = `<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> Surface Normal: No Potholes or Defects Detected</span>`;
+      if (errBanner) {
+        errBanner.classList.remove("hidden");
+        if (errTitle) errTitle.innerText = "❌ No Pothole or Drainage Issue Detected";
+        if (errText) errText.innerText = aiRes.description || "The target is a plain surface, face, or non-infrastructure object. Please point camera directly at a real road pothole or drainage issue.";
       }
-      showToast("ℹ️ Clean Surface: No potholes or road defects detected in this scan. Aim at a physical defect to report.", "warning");
+      if (statusElem) {
+        statusElem.innerHTML = `<span class="text-rose-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Scan Rejected: ${aiRes.description}</span>`;
+      }
+      showToast("❌ No Defect Found: Face, plane surface, or non-infrastructure target detected. Please aim at an actual pothole or drainage problem.", "error");
       
       // Keep in camera preview mode, do not open review form
       if (preview) preview.classList.remove("hidden");
@@ -303,7 +314,9 @@ async function runAIScanOnUrl(imageUrl, hintIssue = null, fileBlob = null) {
       return;
     }
 
-    // Real Defect Detected!
+    // Real Defect (Pothole, Drainage Issue) Confirmed!
+    if (errBanner) errBanner.classList.add("hidden");
+
     // Check for nearby duplicates
     try {
       const dupRes = await fetch("/api/complaints/check-duplicate", {
@@ -331,12 +344,12 @@ async function runAIScanOnUrl(imageUrl, hintIssue = null, fileBlob = null) {
     if (preview) preview.classList.add("hidden");
     if (reviewForm) reviewForm.classList.remove("hidden");
 
-    showToast(`🎯 AI Detected: ${aiRes.issue_type} (${Math.round(aiRes.confidence * 100)}% Confidence)`, "success");
+    showToast(`🎯 Real Defect Identified: ${aiRes.issue_type} (${Math.round(aiRes.confidence * 100)}% Confidence)`, "success");
   } catch (err) {
     console.error("AI Scan Failed:", err);
     if (loading) loading.classList.add("hidden");
     isAnalyzingFrame = false;
-    showToast("AI Scan completed", "info");
+    showToast("AI Scan encountered an error", "error");
   }
 }
 
@@ -378,7 +391,7 @@ async function submitComplaintForm() {
   const address = document.getElementById("review-address").value;
 
   if (issueType === "NO_DEFECT" || !currentAIDetection?.detected) {
-    showToast("Cannot submit a report without a valid detected defect.", "error");
+    showToast("Cannot submit report: No valid road pothole or drainage defect detected.", "error");
     return;
   }
 
